@@ -4,7 +4,12 @@ A sophisticated, containerized Next.js application that provides a premium chat 
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Deploy to Vercel (Recommended)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/openchat)
+
+See [VERCEL-DEPLOYMENT.md](./VERCEL-DEPLOYMENT.md) for detailed deployment instructions.
+
+### Prerequisites for Local Development
 - Docker Desktop installed and running
 - Git (to clone the repository)
 
@@ -36,6 +41,7 @@ scripts\dev-setup.bat
 
 ## 📋 Available Scripts
 
+### Development Scripts
 | Script | Description |
 |--------|-------------|
 | `npm run docker:dev` | Complete development setup with Docker |
@@ -44,6 +50,14 @@ scripts\dev-setup.bat
 | `npm run docker:cleanup` | Complete cleanup of containers and images |
 | `npm run docker:logs` | View application logs |
 | `npm run docker:stop` | Stop running containers |
+
+### Deployment Scripts
+| Script | Description |
+|--------|-------------|
+| `npm run vercel-build` | Full build command for Vercel (DB setup + build) |
+| `npm run test:deployment` | Test deployment configuration |
+| `npm run db:seed` | Seed database with demo data |
+| `npm run postinstall` | Generate Prisma client after install |
 
 ## 🔧 Manual Setup
 

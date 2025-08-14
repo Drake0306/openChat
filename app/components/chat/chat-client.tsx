@@ -8,10 +8,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Bot, User, Send, Loader2, RefreshCw, Monitor, Cpu, Zap, Square, Save, Check } from 'lucide-react';
+import { Bot, User, Send, Loader2, RefreshCw, Monitor, Cpu, Zap, Square, Save, Check, MessageSquarePlus, ChevronDown } from 'lucide-react';
 import MessageRenderer from './message-renderer';
 import { useChatPersistence } from '../../hooks/use-chat-persistence';
-import type { ChatConversation } from '../../../lib/chat-actions';
+import type { Chat, ChatConversation } from '../../../lib/chat-actions';
+import { createNewConversationInChat } from '../../../lib/chat-actions';
 
 interface ChatClientProps {
   availableProviders: { 
@@ -24,7 +25,8 @@ interface ChatClientProps {
     email?: string | null;
     plan?: string;
   };
-  existingConversation?: ChatConversation | null;
+  existingChat?: Chat | null;
+  chatId?: string;
   conversationId?: string;
 }
 
@@ -38,22 +40,28 @@ interface Model {
 export default function ChatClient({ 
   availableProviders, 
   user, 
-  existingConversation,
+  existingChat,
+  chatId: externalChatId,
   conversationId: externalConversationId 
 }: ChatClientProps) {
+  // Get current conversation from existing chat
+  const currentConversation = existingChat?.conversations.find(c => c.id === externalConversationId) || existingChat?.conversations[0];
+  
   // Initialize provider and model from existing conversation or defaults
   const [provider, setProvider] = useState(
-    existingConversation?.provider || availableProviders[0]?.id || 'local-llm'
+    currentConversation?.provider || availableProviders[0]?.id || 'local-llm'
   );
   const [selectedModel, setSelectedModel] = useState<string | undefined>(
-    existingConversation?.model || undefined
+    currentConversation?.model || undefined
   );
   const [availableModels, setAvailableModels] = useState<Model[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
+  const [creatingNewConversation, setCreatingNewConversation] = useState(false);
+  const [loadingChat, setLoadingChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Initialize chat with existing messages if available
-  const initialMessages = existingConversation?.messages.map(msg => ({
+  const initialMessages = currentConversation?.messages.map(msg => ({
     id: msg.id,
     role: msg.role,
     content: msg.content,
@@ -66,11 +74,37 @@ export default function ChatClient({
     initialMessages,
   });
 
-  // Chat persistence hook - use external conversation ID if provided
-  const { conversationId, isInitialized } = useChatPersistence({
+  // Reset messages and settings when switching between chats/conversations
+  useEffect(() => {
+    setLoadingChat(true);
+    
+    const newMessages = currentConversation?.messages.map(msg => ({
+      id: msg.id,
+      role: msg.role,
+      content: msg.content,
+      createdAt: msg.createdAt,
+    })) || [];
+    
+    setMessages(newMessages);
+    
+    // Update provider and model for the current conversation
+    if (currentConversation) {
+      setProvider(currentConversation.provider);
+      if (currentConversation.model) {
+        setSelectedModel(currentConversation.model);
+      }
+    }
+    
+    // Clear loading state after a brief delay to allow UI to update
+    setTimeout(() => setLoadingChat(false), 200);
+  }, [externalChatId, externalConversationId, currentConversation, setMessages]);
+
+  // Chat persistence hook - use external IDs if provided
+  const { chatId, conversationId, isInitialized } = useChatPersistence({
     messages,
     provider,
     model: selectedModel,
+    existingChatId: externalChatId,
     existingConversationId: externalConversationId,
   });
 
@@ -121,7 +155,7 @@ export default function ChatClient({
     }
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (input.trim()) {
       if (isLoading) {
@@ -143,7 +177,32 @@ export default function ChatClient({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleFormSubmit(e);
+      if (input.trim()) {
+        if (isLoading) {
+          // If currently generating, stop the generation first, then send new message
+          stop();
+          setTimeout(() => {
+            handleSubmit(e as any);
+          }, 100);
+        } else {
+          handleSubmit(e as any);
+        }
+      }
+    }
+  };
+
+  const handleNewConversation = async () => {
+    if (!chatId || creatingNewConversation) return;
+    
+    setCreatingNewConversation(true);
+    try {
+      const newConversationId = await createNewConversationInChat(chatId, provider, selectedModel);
+      // Navigate to the new conversation
+      window.location.href = `/chat?id=${chatId}&conversation=${newConversationId}`;
+    } catch (error) {
+      console.error('Failed to create new conversation:', error);
+    } finally {
+      setCreatingNewConversation(false);
     }
   };
 
@@ -168,32 +227,89 @@ export default function ChatClient({
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col chat-full-height w-full bg-gray-50 relative">
+      {/* Loading overlay when switching chats */}
+      {loadingChat && (
+        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="flex flex-col items-center space-y-2">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            <p className="text-sm text-gray-600">Loading chat...</p>
+          </div>
+        </div>
+      )}
+      
       {/* Header */}
-      <div className="bg-white border-b px-6 py-4">
+      <div className="bg-white border-b px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-gray-900">Chat</h1>
-            <div className="flex items-center space-x-2">
-              <p className="text-sm text-gray-500">
-                Chatting with {availableProviders.find(p => p.id === provider)?.name}
-              </p>
-              {selectedModel && (
-                <>
-                  <span className="text-gray-300">•</span>
-                  <Badge variant="outline" className="text-xs">
-                    {availableModels.find(m => m.fullId === selectedModel)?.name || selectedModel}
-                  </Badge>
-                </>
-              )}
-              {conversationId && (
-                <>
-                  <span className="text-gray-300">•</span>
-                  <div className="flex items-center space-x-1 text-xs text-green-600">
-                    <Check className="h-3 w-3" />
-                    <span>Auto-saving</span>
-                  </div>
-                </>
+          <div className="flex-1">
+            <div className="flex items-center space-x-4">
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900">
+                  {existingChat?.title || 'Chat'}
+                </h1>
+                <div className="flex items-center space-x-2">
+                  <p className="text-sm text-gray-500">
+                    Chatting with {availableProviders.find(p => p.id === provider)?.name}
+                  </p>
+                  {selectedModel && (
+                    <>
+                      <span className="text-gray-300">•</span>
+                      <Badge variant="outline" className="text-xs">
+                        {availableModels.find(m => m.fullId === selectedModel)?.name || selectedModel}
+                      </Badge>
+                    </>
+                  )}
+                  {conversationId && (
+                    <>
+                      <span className="text-gray-300">•</span>
+                      <div className="flex items-center space-x-1 text-xs text-green-600">
+                        <Check className="h-3 w-3" />
+                        <span>Auto-saving</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+              
+              {/* Conversation Management */}
+              {existingChat && existingChat.conversations.length > 0 && (
+                <div className="flex items-center space-x-2">
+                  <Select 
+                    value={externalConversationId || currentConversation?.id || ''} 
+                    onValueChange={(value) => {
+                      if (value) {
+                        window.location.href = `/chat?id=${chatId}&conversation=${value}`;
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Select conversation" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {existingChat.conversations.map((conv, index) => (
+                        <SelectItem key={conv.id} value={conv.id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">Conversation {index + 1}</span>
+                            <span className="text-xs text-gray-500">
+                              {conv.provider} • {conv.messages.length} messages
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleNewConversation}
+                    disabled={creatingNewConversation}
+                    className="flex items-center space-x-1"
+                  >
+                    <MessageSquarePlus className="h-4 w-4" />
+                    <span className="hidden sm:inline">New Conversation</span>
+                  </Button>
+                </div>
               )}
             </div>
           </div>
@@ -261,7 +377,7 @@ export default function ChatClient({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden min-h-0">
         <ScrollArea className="h-full">
           <div className="max-w-4xl mx-auto p-6">
             {messages.length === 0 ? (
@@ -388,7 +504,7 @@ export default function ChatClient({
       </div>
 
       {/* Input */}
-      <div className="bg-white border-t px-6 py-4">
+      <div className="bg-white border-t px-6 py-4 flex-shrink-0">
         <form onSubmit={handleFormSubmit} className="max-w-4xl mx-auto">
           <div className="flex items-end space-x-3">
             <div className="flex-1">

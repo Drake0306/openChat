@@ -1,22 +1,22 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 model User {
-  id            String         @id @default(cuid())
+  id            String    @id @default(cuid())
   name          String?
-  email         String?        @unique
+  email         String?   @unique
   emailVerified DateTime?
   image         String?
+  plan          String    @default("NONE")
   accounts      Account[]
+  chats         Chat[]
   sessions      Session[]
-  plan          String         @default("NONE")
-  conversations Conversation[]
 }
 
 model Account {
@@ -32,8 +32,7 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -54,24 +53,35 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model Conversation {
-  id        String    @id @default(cuid())
-  userId    String
-  title     String?
-  provider  String    // 'openai', 'anthropic', 'local-llm', 'ollama'
-  model     String?   // Selected model if applicable
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  messages  Message[]
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+model Chat {
+  id            String         @id @default(cuid())
+  userId        String
+  title         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
 
   @@index([userId, updatedAt])
+}
+
+model Conversation {
+  id        String    @id @default(cuid())
+  chatId    String
+  provider  String
+  model     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  chat      Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@index([chatId, updatedAt])
 }
 
 model Message {
   id             String       @id @default(cuid())
   conversationId String
-  role           String       // 'user' or 'assistant'
+  role           String
   content        String
   createdAt      DateTime     @default(now())
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)

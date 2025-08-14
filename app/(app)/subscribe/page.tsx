@@ -1,6 +1,6 @@
 import { updateUserPlan } from '../../../lib/actions';
 import { auth } from '../../../lib/auth';
-import AppLayout from '../../components/layout/app-layout';
+import UnifiedLayout from '../../components/layout/unified-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,8 +11,8 @@ async function SubscribePage() {
   const userPlan = session?.user?.plan || 'NONE';
   const isDemo = session?.user?.email === 'demo@example.com';
   return (
-    <AppLayout>
-      <div className="min-h-screen bg-gray-50 py-12">
+    <UnifiedLayout>
+      <div className="min-h-screen bg-background py-12">
         <div className="max-w-4xl mx-auto px-6">
           <div className="text-center mb-12">
             <h1 className="text-3xl font-bold text-gray-900 mb-4">Choose Your Plan</h1>
@@ -147,7 +147,7 @@ async function SubscribePage() {
           </div>
         </div>
       </div>
-    </AppLayout>
+    </UnifiedLayout>
   );
 }
 

@@ -11,22 +11,54 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientSecret: process.env.AUTH_GOOGLE_SECRET,
     }),
     Credentials({
-        name: 'Demo User',
+        name: 'Demo Account',
         credentials: {
             email: { label: 'Email', type: 'email' },
             password: { label: 'Password', type: 'password' },
         },
         async authorize(credentials) {
-            if (credentials?.email === 'demo@example.com' && credentials?.password === 'password') {
-                // For demo user, return the user object directly
-                return {
-                    id: 'demo-user-id',
-                    email: 'demo@example.com',
-                    name: 'Demo User',
-                    plan: 'PRO',
-                };
+            if (!credentials?.email || !credentials?.password) {
+                return null;
             }
-            return null;
+
+            try {
+                // Check if user exists in database
+                const user = await db.user.findUnique({
+                    where: { email: credentials.email as string }
+                });
+
+                if (!user) {
+                    console.log('User not found in database:', credentials.email);
+                    return null;
+                }
+
+                // For demo/development, we accept simple password validation
+                // In production, you should hash passwords properly
+                const validCredentials = [
+                    { email: 'demo@example.com', password: 'password' },
+                    { email: 'test@example.com', password: 'password' }
+                ];
+
+                const isValidCredential = validCredentials.some(
+                    cred => cred.email === credentials.email && cred.password === credentials.password
+                );
+
+                if (!isValidCredential) {
+                    console.log('Invalid credentials for:', credentials.email);
+                    return null;
+                }
+
+                // Return the user from database with their actual plan
+                return {
+                    id: user.id,
+                    email: user.email,
+                    name: user.name || 'User',
+                    plan: user.plan,
+                };
+            } catch (error) {
+                console.error('Error during credentials authorization:', error);
+                return null;
+            }
         },
     }),
   ],
@@ -62,6 +94,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         } catch (error) {
           console.error('Error handling Google user:', error);
         }
+      }
+      
+      // For credentials provider, the user data is already from database
+      if (account?.provider === 'credentials' && user) {
+        token.plan = user.plan;
+        token.sub = user.id;
       }
       
       return token;

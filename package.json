@@ -4,9 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:setup": "tsx scripts/dev-setup.ts && npm run dev",
+    "dev:setup:win": "dev-setup.bat",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
+    "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "db:viewer": "tsx scripts/db-viewer.ts",
+    "db:fix-windows": "tsx scripts/fix-prisma-windows.ts",
     "docker:dev": "node -e \"process.platform === 'win32' ? require('child_process').exec('scripts\\\\dev-setup.bat') : require('child_process').exec('scripts/dev-setup.sh')\"",
     "docker:build": "node -e \"process.platform === 'win32' ? require('child_process').exec('scripts\\\\prod-build.bat') : require('child_process').exec('scripts/prod-build.sh')\"",
     "docker:prod": "docker-compose -f docker-compose.prod.yml up -d",
@@ -21,7 +28,8 @@
     "@hookform/resolvers": "^3.3.4",
     "@prisma/client": "^5.7.0",
     "@radix-ui/react-avatar": "^1.0.4",
-    "@radix-ui/react-dialog": "^1.0.5",
+    "@radix-ui/react-checkbox": "^1.3.3",
+    "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.0.6",
     "@radix-ui/react-icons": "^1.3.2",
     "@radix-ui/react-label": "^2.1.7",
@@ -29,9 +37,10 @@
     "@radix-ui/react-select": "^2.2.5",
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tooltip": "^1.2.8",
     "@types/react-syntax-highlighter": "^15.5.13",
     "ai": "^2.2.31",
-    "class-variance-authority": "^0.7.0",
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.0",
     "lucide-react": "^0.309.0",
     "next": "14.0.4",
@@ -59,6 +68,10 @@
     "postcss": "^8",
     "prisma": "^5.7.0",
     "tailwindcss": "^3.3.0",
+    "tsx": "^4.20.4",
     "typescript": "^5"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }

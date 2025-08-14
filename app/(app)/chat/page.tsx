@@ -1,34 +1,37 @@
 import { auth } from '../../../lib/auth';
 import { getAvailableProviders } from '../../../lib/llm-providers';
-import { getConversation } from '../../../lib/chat-actions';
+import { getChat } from '../../../lib/chat-actions';
 import ChatClient from '../../components/chat/chat-client';
 import ChatLayout from '../../components/layout/chat-layout';
 
 interface ChatPageProps {
-  searchParams: { id?: string };
+  searchParams: { id?: string; conversation?: string; new?: string };
 }
 
 async function ChatPage({ searchParams }: ChatPageProps) {
   const session = await auth();
   const availableProviders = getAvailableProviders(session?.user?.plan || 'NONE');
   
-  // Load existing conversation if ID provided
-  let existingConversation = null;
-  if (searchParams.id) {
+  // Load existing chat if ID provided (but not if this is a new chat)
+  let existingChat = null;
+  if (searchParams.id && !searchParams.new) {
     try {
-      existingConversation = await getConversation(searchParams.id);
+      existingChat = await getChat(searchParams.id);
     } catch (error) {
-      console.error('Failed to load conversation:', error);
+      console.error('Failed to load chat:', error);
     }
   }
 
+  const isNewChat = !!searchParams.new;
+  
   return (
-    <ChatLayout currentConversationId={searchParams.id}>
+    <ChatLayout currentChatId={isNewChat ? undefined : searchParams.id}>
       <ChatClient 
         availableProviders={availableProviders}
         user={session?.user}
-        existingConversation={existingConversation}
-        conversationId={searchParams.id}
+        existingChat={existingChat}
+        chatId={isNewChat ? undefined : searchParams.id}
+        conversationId={isNewChat ? undefined : searchParams.conversation}
       />
     </ChatLayout>
   );

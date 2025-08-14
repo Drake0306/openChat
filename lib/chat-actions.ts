@@ -12,7 +12,6 @@ export interface ChatMessage {
 
 export interface ChatConversation {
   id: string;
-  title?: string | null;
   provider: string;
   model?: string | null;
   createdAt: Date;
@@ -20,8 +19,39 @@ export interface ChatConversation {
   messages: ChatMessage[];
 }
 
-// Create a new conversation
-export async function createConversation(provider: string, model?: string): Promise<string> {
+export interface Chat {
+  id: string;
+  title?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  conversations: ChatConversation[];
+  currentConversationId?: string;
+}
+
+// Create a new chat (parent container)
+export async function createChat(): Promise<string> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error('Not authenticated');
+  }
+
+  try {
+    const chat = await db.chat.create({
+      data: {
+        userId: session.user.id,
+        title: null, // Will be set by first message
+      },
+    });
+
+    return chat.id;
+  } catch (error) {
+    console.error('Error creating chat:', error);
+    throw error;
+  }
+}
+
+// Create a new conversation within a chat
+export async function createConversation(chatId: string, provider: string, model?: string): Promise<string> {
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error('Not authenticated');
@@ -30,18 +60,16 @@ export async function createConversation(provider: string, model?: string): Prom
   try {
     const conversation = await db.conversation.create({
       data: {
-        userId: session.user.id,
+        chatId,
         provider,
         model,
-        title: `New Chat - ${new Date().toLocaleDateString()}`,
       },
     });
 
     return conversation.id;
   } catch (error) {
     console.error('Error creating conversation:', error);
-    // Fallback to in-memory storage or return a temporary ID
-    return `temp-${Date.now()}`;
+    throw error;
   }
 }
 
@@ -71,9 +99,14 @@ export async function saveMessage(
       },
     });
 
-    // Update conversation timestamp
-    await db.conversation.update({
+    // Update conversation and chat timestamps
+    const conversation = await db.conversation.update({
       where: { id: conversationId },
+      data: { updatedAt: new Date() },
+    });
+
+    await db.chat.update({
+      where: { id: conversation.chatId },
       data: { updatedAt: new Date() },
     });
   } catch (error) {
@@ -98,7 +131,9 @@ export async function getConversation(conversationId: string): Promise<ChatConve
     const conversation = await db.conversation.findFirst({
       where: {
         id: conversationId,
-        userId: session.user.id,
+        chat: {
+          userId: session.user.id,
+        },
       },
       include: {
         messages: {
@@ -111,7 +146,6 @@ export async function getConversation(conversationId: string): Promise<ChatConve
 
     return {
       id: conversation.id,
-      title: conversation.title,
       provider: conversation.provider,
       model: conversation.model,
       createdAt: conversation.createdAt,
@@ -129,91 +163,182 @@ export async function getConversation(conversationId: string): Promise<ChatConve
   }
 }
 
-// Get all conversations for user
-export async function getUserConversations(): Promise<ChatConversation[]> {
+// Get chat with all its conversations
+export async function getChat(chatId: string): Promise<Chat | null> {
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error('Not authenticated');
   }
 
   try {
-    const conversations = await db.conversation.findMany({
+    if (chatId.startsWith('temp-')) {
+      return null;
+    }
+
+    const chat = await db.chat.findFirst({
+      where: {
+        id: chatId,
+        userId: session.user.id,
+      },
+      include: {
+        conversations: {
+          include: {
+            messages: {
+              orderBy: { createdAt: 'asc' },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    if (!chat) return null;
+
+    return {
+      id: chat.id,
+      title: chat.title,
+      createdAt: chat.createdAt,
+      updatedAt: chat.updatedAt,
+      conversations: chat.conversations.map(conv => ({
+        id: conv.id,
+        provider: conv.provider,
+        model: conv.model,
+        createdAt: conv.createdAt,
+        updatedAt: conv.updatedAt,
+        messages: conv.messages.map(msg => ({
+          id: msg.id,
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+          createdAt: msg.createdAt,
+        })),
+      })),
+      currentConversationId: chat.conversations[0]?.id,
+    };
+  } catch (error) {
+    console.error('Error getting chat:', error);
+    return null;
+  }
+}
+
+// Get all chats for user (for sidebar)
+export async function getUserChats(): Promise<Chat[]> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error('Not authenticated');
+  }
+
+  try {
+    const chats = await db.chat.findMany({
       where: { userId: session.user.id },
       include: {
-        messages: {
+        conversations: {
+          include: {
+            messages: {
+              orderBy: { createdAt: 'asc' },
+              take: 1, // Just get the first message for preview
+            },
+          },
           orderBy: { createdAt: 'asc' },
-          take: 1, // Just get the first message for preview
+          take: 1, // Just the first conversation for preview
         },
       },
       orderBy: { updatedAt: 'desc' },
-      take: 50, // Limit to recent conversations
+      take: 50, // Limit to recent chats
     });
 
-    return conversations.map(conv => ({
-      id: conv.id,
-      title: conv.title,
-      provider: conv.provider,
-      model: conv.model,
-      createdAt: conv.createdAt,
-      updatedAt: conv.updatedAt,
-      messages: conv.messages.map(msg => ({
-        id: msg.id,
-        role: msg.role as 'user' | 'assistant',
-        content: msg.content,
-        createdAt: msg.createdAt,
+    return chats.map(chat => ({
+      id: chat.id,
+      title: chat.title,
+      createdAt: chat.createdAt,
+      updatedAt: chat.updatedAt,
+      conversations: chat.conversations.map(conv => ({
+        id: conv.id,
+        provider: conv.provider,
+        model: conv.model,
+        createdAt: conv.createdAt,
+        updatedAt: conv.updatedAt,
+        messages: conv.messages.map(msg => ({
+          id: msg.id,
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+          createdAt: msg.createdAt,
+        })),
       })),
+      currentConversationId: chat.conversations[0]?.id,
     }));
   } catch (error) {
-    console.error('Error getting user conversations:', error);
+    console.error('Error getting user chats:', error);
     return [];
   }
 }
 
-// Update conversation title
-export async function updateConversationTitle(conversationId: string, title: string): Promise<void> {
+// Update chat title (based on first conversation's first message)
+export async function updateChatTitle(chatId: string, title: string): Promise<void> {
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error('Not authenticated');
   }
 
   try {
-    if (conversationId.startsWith('temp-')) {
+    if (chatId.startsWith('temp-')) {
       return;
     }
 
-    await db.conversation.update({
+    await db.chat.update({
       where: {
-        id: conversationId,
+        id: chatId,
         userId: session.user.id,
       },
       data: { title },
     });
   } catch (error) {
-    console.error('Error updating conversation title:', error);
+    console.error('Error updating chat title:', error);
   }
 }
 
 
-// Delete a conversation
-export async function deleteConversation(conversationId: string): Promise<void> {
+// Delete a chat and all its conversations
+export async function deleteChat(chatId: string): Promise<void> {
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error('Not authenticated');
   }
 
   try {
-    if (conversationId.startsWith('temp-')) {
+    if (chatId.startsWith('temp-')) {
       return;
     }
 
-    await db.conversation.delete({
+    await db.chat.delete({
       where: {
-        id: conversationId,
+        id: chatId,
         userId: session.user.id,
       },
     });
   } catch (error) {
-    console.error('Error deleting conversation:', error);
+    console.error('Error deleting chat:', error);
     throw error;
   }
+}
+
+// Create a new conversation in an existing chat
+export async function createNewConversationInChat(chatId: string, provider: string, model?: string): Promise<string> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error('Not authenticated');
+  }
+
+  // Verify chat belongs to user
+  const chat = await db.chat.findFirst({
+    where: {
+      id: chatId,
+      userId: session.user.id,
+    },
+  });
+
+  if (!chat) {
+    throw new Error('Chat not found or not authorized');
+  }
+
+  return createConversation(chatId, provider, model);
 }

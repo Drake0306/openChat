@@ -26,12 +26,16 @@ const sampleTestimonials: Testimonial[] = [
 
 const SignInPageDemo = () => {
   const handleSignIn = async (formData: FormData) => {
+    // Simulate loading delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
     const data = Object.fromEntries(formData.entries());
     console.log("Sign In submitted:", data);
     alert(`Sign In Submitted! Data: ${JSON.stringify(data, null, 2)}`);
   };
 
   const handleGoogleSignIn = async () => {
+    // Simulate loading delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
     console.log("Continue with Google clicked");
     alert("Continue with Google clicked - this would redirect to Google OAuth");
   };

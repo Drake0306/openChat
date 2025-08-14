@@ -3,6 +3,7 @@ import { getAvailableProviders } from '../../../lib/llm-providers';
 import { getChat } from '../../../lib/chat-actions';
 import ChatClient from '../../components/chat/chat-client';
 import ChatLayout from '../../components/layout/chat-layout';
+import { redirect } from 'next/navigation';
 
 interface ChatPageProps {
   searchParams: { id?: string; conversation?: string; new?: string };
@@ -10,6 +11,12 @@ interface ChatPageProps {
 
 async function ChatPage({ searchParams }: ChatPageProps) {
   const session = await auth();
+  
+  // Ensure user is authenticated
+  if (!session?.user) {
+    redirect('/signin');
+  }
+  
   const availableProviders = getAvailableProviders(session?.user?.plan || 'NONE');
   
   // Load existing chat if ID provided (but not if this is a new chat)

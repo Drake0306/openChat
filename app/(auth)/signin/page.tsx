@@ -14,14 +14,18 @@ export default function SignInPage({ searchParams }: SignInPageProps) {
     'use server';
     
     try {
-      await signIn('credentials', {
+      const result = await signIn('credentials', {
         email: formData.get('email'),
         password: formData.get('password'),
-        redirectTo: '/chat'
+        redirect: false,
       });
+      
+      if (result?.error) {
+        redirect('/signin?error=Invalid credentials');
+      }
+      // If successful, return without redirect - client will handle it
     } catch (error) {
-      // NextAuth will handle redirects on success
-      // Errors are handled via URL params
+      console.error('Sign in error:', error);
       redirect('/signin?error=Invalid credentials');
     }
   };
@@ -30,8 +34,10 @@ export default function SignInPage({ searchParams }: SignInPageProps) {
     'use server';
     
     try {
+      // Google OAuth will handle its own redirects
       await signIn('google', { redirectTo: '/chat' });
     } catch (error) {
+      console.error('Google sign in error:', error);
       redirect('/signin?error=Google sign in failed');
     }
   };

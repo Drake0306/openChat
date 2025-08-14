@@ -1,8 +1,8 @@
 'use client';
 
 import { SignInPage, Testimonial } from "@/components/ui/sign-in";
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useFormStatus } from 'react-dom';
+import { useAuthRedirect } from '../../hooks/use-auth-redirect';
 
 const testimonials: Testimonial[] = [
   {
@@ -31,35 +31,9 @@ interface SignInClientProps {
   error?: string;
 }
 
-export function SignInClient({ signInAction, googleSignInAction, error }: SignInClientProps) {
-  const [isRedirecting, setIsRedirecting] = useState(false);
-  const router = useRouter();
-
-  // Enhanced sign-in wrapper that handles client-side redirect
-  const handleSignInWithRedirect = async (formData: FormData) => {
-    try {
-      await signInAction(formData);
-      // If we get here without error, the sign-in was successful
-      setIsRedirecting(true);
-      router.push('/chat');
-      router.refresh(); // Force a refresh to ensure middleware runs
-    } catch (error) {
-      // Error handling is done by the server action
-      console.error('Sign in error:', error);
-    }
-  };
-
-  const handleGoogleSignInWithRedirect = async () => {
-    try {
-      await googleSignInAction();
-      setIsRedirecting(true);
-      router.push('/chat');
-      router.refresh(); // Force a refresh to ensure middleware runs
-    } catch (error) {
-      console.error('Google sign in error:', error);
-    }
-  };
-
+function SignInForm({ signInAction, googleSignInAction, error }: SignInClientProps) {
+  const { pending } = useFormStatus();
+  
   const handleResetPassword = () => {
     alert("Password reset functionality would be implemented here");
   };
@@ -67,18 +41,6 @@ export function SignInClient({ signInAction, googleSignInAction, error }: SignIn
   const handleCreateAccount = () => {
     alert("Account creation would redirect to signup page");
   };
-
-  // Show loading state if redirecting
-  if (isRedirecting) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <p className="text-sm text-muted-foreground">Redirecting to chat...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <SignInPage
@@ -91,11 +53,42 @@ export function SignInClient({ signInAction, googleSignInAction, error }: SignIn
       description="Access your premium multi-provider LLM chat platform"
       heroImageSrc="https://images.unsplash.com/photo-1677442136019-21780ecad995?w=2160&q=80"
       testimonials={testimonials}
-      signInAction={handleSignInWithRedirect}
-      googleSignInAction={handleGoogleSignInWithRedirect}
+      signInAction={signInAction}
+      googleSignInAction={googleSignInAction}
       onResetPassword={handleResetPassword}
       onCreateAccount={handleCreateAccount}
       error={error}
+      pending={pending}
     />
   );
+}
+
+export function SignInClient({ signInAction, googleSignInAction, error }: SignInClientProps) {
+  const { isAuthenticated, status } = useAuthRedirect();
+
+  // Show loading state while checking authentication
+  if (status === 'loading') {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <p className="text-sm text-muted-foreground">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show redirecting state if authenticated
+  if (isAuthenticated) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <p className="text-sm text-muted-foreground">Redirecting to chat...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <SignInForm signInAction={signInAction} googleSignInAction={googleSignInAction} error={error} />;
 }

@@ -34,6 +34,7 @@ interface SignInPageProps {
   onResetPassword?: () => void;
   onCreateAccount?: () => void;
   error?: string;
+  pending?: boolean;
 }
 
 // --- SUB-COMPONENTS ---
@@ -67,37 +68,9 @@ export const SignInPage: React.FC<SignInPageProps> = ({
   onResetPassword,
   onCreateAccount,
   error,
+  pending = false,
 }) => {
   const [showPassword, setShowPassword] = useState(false);
-  const [isSigningIn, setIsSigningIn] = useState(false);
-  const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
-
-  const handleSignInSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!signInAction) return;
-    
-    setIsSigningIn(true);
-    const formData = new FormData(event.currentTarget);
-    
-    // Call the server action
-    signInAction(formData).catch((error) => {
-      console.error('Sign in error:', error);
-      setIsSigningIn(false);
-    });
-  };
-
-  const handleGoogleSignInClick = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!googleSignInAction) return;
-    
-    setIsGoogleSigningIn(true);
-    
-    // Call the server action
-    googleSignInAction().catch((error) => {
-      console.error('Google sign in error:', error);
-      setIsGoogleSigningIn(false);
-    });
-  };
 
   return (
     <div className="h-[100dvh] flex flex-col md:flex-row font-geist w-[100dvw]">
@@ -114,7 +87,7 @@ export const SignInPage: React.FC<SignInPageProps> = ({
               </div>
             )}
 
-            <form className="space-y-5" onSubmit={handleSignInSubmit}>
+            <form className="space-y-5" action={signInAction}>
               <div className="animate-element animate-delay-300">
                 <label className="text-sm font-medium text-muted-foreground">Email Address</label>
                 <GlassInputWrapper>
@@ -158,10 +131,10 @@ export const SignInPage: React.FC<SignInPageProps> = ({
 
               <button 
                 type="submit" 
-                disabled={isSigningIn || isGoogleSigningIn}
+                disabled={pending}
                 className="animate-element animate-delay-600 w-full rounded-2xl bg-primary py-4 font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {isSigningIn ? (
+                {pending ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground"></div>
                     Signing In...
@@ -177,23 +150,14 @@ export const SignInPage: React.FC<SignInPageProps> = ({
               <span className="px-4 text-sm text-muted-foreground bg-background absolute">Or continue with</span>
             </div>
 
-            <form onSubmit={handleGoogleSignInClick}>
+            <form action={googleSignInAction}>
               <button 
                 type="submit" 
-                disabled={isSigningIn || isGoogleSigningIn}
+                disabled={pending}
                 className="animate-element animate-delay-800 w-full flex items-center justify-center gap-3 border border-border rounded-2xl py-4 hover:bg-secondary transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {isGoogleSigningIn ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-foreground"></div>
-                    Signing in with Google...
-                  </>
-                ) : (
-                  <>
-                    <GoogleIcon />
-                    Continue with Google
-                  </>
-                )}
+                <GoogleIcon />
+                Continue with Google
               </button>
             </form>
 

@@ -109,18 +109,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async redirect({ url, baseUrl }) {
       // Always redirect to /chat after successful sign in
-      if (url.startsWith("/signin") || url === baseUrl) {
+      if (url.startsWith("/signin") || url === baseUrl || url.startsWith(baseUrl)) {
         return `${baseUrl}/chat`;
       }
+      
       // Allow relative callback URLs
       if (url.startsWith("/")) {
         return `${baseUrl}${url}`;
       }
+      
       // Allow callback URLs on the same origin
       if (new URL(url).origin === baseUrl) {
         return url;
       }
-      return baseUrl;
+      
+      return `${baseUrl}/chat`;
     },
   },
   pages: {

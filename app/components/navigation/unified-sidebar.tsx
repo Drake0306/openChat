@@ -238,7 +238,7 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="flex flex-col overflow-hidden">
+      <SidebarContent className="flex flex-col h-full">
         {/* New Chat Button */}
         <SidebarGroup>
           <SidebarGroupContent>
@@ -302,10 +302,10 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
         <SidebarSeparator />
 
         {/* Chat History */}
-        <SidebarGroup className="flex-1 min-h-0">
+        <SidebarGroup className="flex-1 min-h-0 overflow-hidden">
           <SidebarGroupLabel>Recent Chats</SidebarGroupLabel>
-          <SidebarGroupContent className="flex-1 max-w-full">
-            <ScrollArea className="h-full overflow-hidden [&>[data-radix-scroll-area-scrollbar]]:hidden">
+          <SidebarGroupContent className="flex-1 max-w-full min-h-0">
+            <ScrollArea className="h-full [&>[data-radix-scroll-area-scrollbar]]:hidden">
               {loadingChats ? (
                 <div className="p-4 text-center text-sidebar-foreground/70 text-sm">
                   Loading chats...

@@ -199,20 +199,21 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
       loadChats();
     };
     
-    const handleChatTitleUpdated = (event: CustomEvent) => {
+    const handleChatTitleUpdated = (event: Event) => {
       // Update title locally without full refresh
-      const { chatId, title } = event.detail;
+      const customEvent = event as CustomEvent;
+      const { chatId, title } = customEvent.detail;
       setChats(prev => prev.map(chat => 
         chat.id === chatId ? { ...chat, title } : chat
       ));
     };
 
     window.addEventListener('chatCreated', handleChatCreated);
-    window.addEventListener('chatTitleUpdated', handleChatTitleUpdated);
+    window.addEventListener('chatTitleUpdated', handleChatTitleUpdated as EventListener);
     
     return () => {
       window.removeEventListener('chatCreated', handleChatCreated);
-      window.removeEventListener('chatTitleUpdated', handleChatTitleUpdated);
+      window.removeEventListener('chatTitleUpdated', handleChatTitleUpdated as EventListener);
     };
   }, []);
 
@@ -320,7 +321,6 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
                     {chats.map((chat) => {
                     const firstConversation = chat.conversations[0];
                     const isRenaming = renamingId === chat.id;
-                    console.log(`Chat ${chat.id} - isRenaming: ${isRenaming}, renamingId: ${renamingId}`);
                     return (
                       <SidebarMenuItem key={chat.id}>
                         <div className="flex items-start w-full group/item relative max-w-full">
@@ -358,7 +358,6 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
                                   </div>
                                 ) : (
                                   <span className="truncate font-medium flex-1 mr-2 max-w-[180px]">
-                                    {console.log('Displaying title for chat:', chat.id, 'title:', chat.title)}
                                     {chat.title || 'Untitled Chat'}
                                   </span>
                                 )}

@@ -258,7 +258,9 @@ export default function ChatClient({
       }
     `;
     document.head.appendChild(style);
-    return () => document.head.removeChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
   }, []);
   
   // Initialize chat with existing messages if available
@@ -472,7 +474,9 @@ export default function ChatClient({
 
   // Notify parent component of model/provider changes
   useEffect(() => {
-    onModelChange?.(selectedModel, provider);
+    if (selectedModel) {
+      onModelChange?.(selectedModel, provider);
+    }
   }, [provider, selectedModel, onModelChange]);
 
   // Fetch available models when provider changes

@@ -89,9 +89,60 @@
     height: calc(100vh - 4rem); /* Subtract header height */
     min-height: calc(100vh - 4rem);
   }
+  
+  .chat-smooth-scroll {
+    scroll-behavior: smooth;
+  }
+  
+  .message-enter {
+    animation: messageSlideIn 0.3s ease-out forwards;
+    opacity: 0;
+    transform: translateY(10px);
+  }
 }
 
-/* Sign-in component animations */
+/* Remove all borders and outlines from textarea */
+@layer components {
+  .chat-textarea {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+  }
+  
+  .chat-textarea:focus {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    ring: none !important;
+  }
+}
+
+/* Chat and Sign-in component animations */
+@keyframes messageSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0px) scale(1);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0px);
+  }
+}
+
 @keyframes fadeSlideIn {
   from {
     opacity: 0;
@@ -129,6 +180,11 @@
     filter: blur(0px);
     transform: translateY(0px) scale(1);
   }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+  opacity: 0;
 }
 
 .animate-element {

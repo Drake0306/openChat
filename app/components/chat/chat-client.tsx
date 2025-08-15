@@ -1135,7 +1135,7 @@ export default function ChatClient({
                           target: { value: "Help me brainstorm ideas for a weekend project" }
                         } as React.ChangeEvent<HTMLTextAreaElement>;
                         handleInputChange(syntheticEvent);
-                      }}
+                      }} 
                       className="group p-4 bg-white border border-gray-200 rounded-xl hover:border-purple-300 hover:shadow-md transition-all duration-200 text-left"
                     >
                       <div className="flex items-start gap-3">

@@ -807,6 +807,7 @@ export default function ChatClient({
                               <DropdownMenuContent 
                                 className="w-[700px] max-w-4xl" 
                                 align="start"
+                                side="bottom"
                                 sideOffset={8}
                               >
                                 <DropdownMenuLabel className="text-base font-semibold">Select Model Provider</DropdownMenuLabel>
@@ -1402,7 +1403,7 @@ export default function ChatClient({
                                 <span className="text-sm font-medium">
                                   {currentProvider?.name || 'Models'}
                                 </span>
-                                <ChevronDown className="h-3 w-3" />
+                                <ChevronUp className="h-3 w-3" />
                               </>
                             );
                           })()}
@@ -1411,6 +1412,7 @@ export default function ChatClient({
                       <DropdownMenuContent 
                         className="w-[700px] max-w-4xl" 
                         align="start"
+                        side="top"
                         sideOffset={8}
                       >
                         <DropdownMenuLabel className="text-base font-semibold">Select Model Provider</DropdownMenuLabel>

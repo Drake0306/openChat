@@ -7,8 +7,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { Bot, User, Send, Loader2, RefreshCw, Monitor, Cpu, Zap, Square, Save, Check, ChevronDown, Sparkles, MessageCircle, Lightbulb, Code, HelpCircle, Edit2, ChevronUp, ChevronDown as ScrollDown } from 'lucide-react';
+import { Bot, User, Send, Loader2, RefreshCw, Monitor, Cpu, Zap, Square, Save, Check, ChevronDown, Sparkles, MessageCircle, Lightbulb, Code, HelpCircle, Edit2, ChevronUp, ChevronDown as ScrollDown, Settings, Database, MessageSquare, Brain, Palette } from 'lucide-react';
 import MessageRenderer from './message-renderer';
 import { useChatPersistence } from '../../hooks/use-chat-persistence';
 import type { Chat, ChatConversation } from '../../../lib/chat-actions';
@@ -68,6 +69,8 @@ export default function ChatClient({
   const [editingContent, setEditingContent] = useState('');
   const [showScrollToTop, setShowScrollToTop] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [selectedMainOption, setSelectedMainOption] = useState('chat');
+  const [showTopSelector, setShowTopSelector] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputContainerRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -600,7 +603,7 @@ export default function ChatClient({
                         <div className="flex items-center justify-between px-6 py-4 bg-gray-50/50 border-t border-gray-50">
                           <div className="flex items-center space-x-2 text-sm text-gray-500">
                             <span>Press</span>
-                            <kbd className="px-2 py-1 bg-gray-200 rounded text-xs font-mono">Enter</kbd>
+                            <kbd className="px-2 py-1 bg-gray-800 text-gray-100 rounded text-xs font-mono border border-gray-600">Enter</kbd>
                             <span>to send</span>
                           </div>
                           
@@ -985,6 +988,256 @@ export default function ChatClient({
         )}
       </div>
 
+      {/* Top Modal Selector and Refresh - Only show when there are messages */}
+      {messages.length > 0 && (
+        <div className="bg-white/95 backdrop-blur-sm border-t border-gray-100 px-6 py-3 flex-shrink-0">
+          <div className="max-w-4xl mx-auto flex items-center justify-between">
+            {/* Main Selector */}
+            <div className="flex items-center space-x-4">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="flex items-center space-x-2 bg-white hover:bg-gray-50 border-2 border-blue-200 hover:border-blue-300 transition-all duration-200"
+                  >
+                    {selectedMainOption === 'chat' && <MessageSquare className="h-4 w-4" />}
+                    {selectedMainOption === 'settings' && <Settings className="h-4 w-4" />}
+                    {selectedMainOption === 'data' && <Database className="h-4 w-4" />}
+                    {selectedMainOption === 'ai' && <Brain className="h-4 w-4" />}
+                    {selectedMainOption === 'themes' && <Palette className="h-4 w-4" />}
+                    <span className="capitalize font-medium">{selectedMainOption}</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent 
+                  className="w-[800px] max-w-5xl" 
+                  align="start"
+                  sideOffset={8}
+                >
+                  <DropdownMenuLabel className="text-lg font-semibold">Main Options</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  
+                  {/* Chat Section */}
+                  <div className="grid grid-cols-5 gap-2 p-2">
+                    <DropdownMenuItem 
+                      onClick={() => setSelectedMainOption('chat')}
+                      className="flex flex-col items-center space-y-2 p-4 h-auto cursor-pointer hover:bg-blue-50"
+                    >
+                      <MessageSquare className="h-8 w-8 text-blue-600" />
+                      <div className="text-center">
+                        <div className="font-medium">Chat</div>
+                        <div className="text-xs text-gray-500">Conversations</div>
+                      </div>
+                    </DropdownMenuItem>
+                    
+                    <DropdownMenuItem 
+                      onClick={() => setSelectedMainOption('settings')}
+                      className="flex flex-col items-center space-y-2 p-4 h-auto cursor-pointer hover:bg-green-50"
+                    >
+                      <Settings className="h-8 w-8 text-green-600" />
+                      <div className="text-center">
+                        <div className="font-medium">Settings</div>
+                        <div className="text-xs text-gray-500">Configuration</div>
+                      </div>
+                    </DropdownMenuItem>
+                    
+                    <DropdownMenuItem 
+                      onClick={() => setSelectedMainOption('data')}
+                      className="flex flex-col items-center space-y-2 p-4 h-auto cursor-pointer hover:bg-purple-50"
+                    >
+                      <Database className="h-8 w-8 text-purple-600" />
+                      <div className="text-center">
+                        <div className="font-medium">Data</div>
+                        <div className="text-xs text-gray-500">Management</div>
+                      </div>
+                    </DropdownMenuItem>
+                    
+                    <DropdownMenuItem 
+                      onClick={() => setSelectedMainOption('ai')}
+                      className="flex flex-col items-center space-y-2 p-4 h-auto cursor-pointer hover:bg-orange-50"
+                    >
+                      <Brain className="h-8 w-8 text-orange-600" />
+                      <div className="text-center">
+                        <div className="font-medium">AI Models</div>
+                        <div className="text-xs text-gray-500">Intelligence</div>
+                      </div>
+                    </DropdownMenuItem>
+                    
+                    <DropdownMenuItem 
+                      onClick={() => setSelectedMainOption('themes')}
+                      className="flex flex-col items-center space-y-2 p-4 h-auto cursor-pointer hover:bg-pink-50"
+                    >
+                      <Palette className="h-8 w-8 text-pink-600" />
+                      <div className="text-center">
+                        <div className="font-medium">Themes</div>
+                        <div className="text-xs text-gray-500">Appearance</div>
+                      </div>
+                    </DropdownMenuItem>
+                  </div>
+                  
+                  <DropdownMenuSeparator />
+                  
+                  {/* Sub-options based on selected main option */}
+                  {selectedMainOption === 'chat' && (
+                    <div className="grid grid-cols-5 gap-2 p-2">
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <MessageCircle className="h-6 w-6 text-blue-500" />
+                        <span className="text-sm">New Chat</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Save className="h-6 w-6 text-green-500" />
+                        <span className="text-sm">Save Chat</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <RefreshCw className="h-6 w-6 text-blue-500" />
+                        <span className="text-sm">Reload</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Edit2 className="h-6 w-6 text-yellow-500" />
+                        <span className="text-sm">Edit Mode</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <HelpCircle className="h-6 w-6 text-gray-500" />
+                        <span className="text-sm">Help</span>
+                      </DropdownMenuItem>
+                    </div>
+                  )}
+                  
+                  {selectedMainOption === 'settings' && (
+                    <div className="grid grid-cols-5 gap-2 p-2">
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Cpu className="h-6 w-6 text-green-500" />
+                        <span className="text-sm">Providers</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Zap className="h-6 w-6 text-yellow-500" />
+                        <span className="text-sm">Models</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Monitor className="h-6 w-6 text-blue-500" />
+                        <span className="text-sm">Display</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Save className="h-6 w-6 text-purple-500" />
+                        <span className="text-sm">Auto-save</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Settings className="h-6 w-6 text-gray-500" />
+                        <span className="text-sm">Advanced</span>
+                      </DropdownMenuItem>
+                    </div>
+                  )}
+                  
+                  {selectedMainOption === 'data' && (
+                    <div className="grid grid-cols-5 gap-2 p-2">
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Database className="h-6 w-6 text-purple-500" />
+                        <span className="text-sm">Export</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <RefreshCw className="h-6 w-6 text-blue-500" />
+                        <span className="text-sm">Sync</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Save className="h-6 w-6 text-green-500" />
+                        <span className="text-sm">Backup</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Square className="h-6 w-6 text-red-500" />
+                        <span className="text-sm">Clear</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <HelpCircle className="h-6 w-6 text-gray-500" />
+                        <span className="text-sm">Info</span>
+                      </DropdownMenuItem>
+                    </div>
+                  )}
+                  
+                  {selectedMainOption === 'ai' && (
+                    <div className="grid grid-cols-5 gap-2 p-2">
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Brain className="h-6 w-6 text-orange-500" />
+                        <span className="text-sm">GPT</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Cpu className="h-6 w-6 text-blue-500" />
+                        <span className="text-sm">Local</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Zap className="h-6 w-6 text-yellow-500" />
+                        <span className="text-sm">Ollama</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Settings className="h-6 w-6 text-gray-500" />
+                        <span className="text-sm">Config</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <RefreshCw className="h-6 w-6 text-green-500" />
+                        <span className="text-sm">Refresh</span>
+                      </DropdownMenuItem>
+                    </div>
+                  )}
+                  
+                  {selectedMainOption === 'themes' && (
+                    <div className="grid grid-cols-5 gap-2 p-2">
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Palette className="h-6 w-6 text-pink-500" />
+                        <span className="text-sm">Light</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Palette className="h-6 w-6 text-gray-700" />
+                        <span className="text-sm">Dark</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Palette className="h-6 w-6 text-blue-500" />
+                        <span className="text-sm">Blue</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Palette className="h-6 w-6 text-green-500" />
+                        <span className="text-sm">Green</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
+                        <Palette className="h-6 w-6 text-purple-500" />
+                        <span className="text-sm">Purple</span>
+                      </DropdownMenuItem>
+                    </div>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
+              {/* Status Badge */}
+              <Badge variant="outline" className="bg-white/80">
+                {messages.length} message{messages.length !== 1 ? 's' : ''}
+              </Badge>
+            </div>
+            
+            {/* Refresh Controls */}
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.reload()}
+                className="flex items-center space-x-1 bg-white hover:bg-gray-50"
+              >
+                <RefreshCw className="h-4 w-4" />
+                <span>Refresh</span>
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refreshModels}
+                disabled={loadingModels || isLoading}
+                className="flex items-center space-x-1 bg-white hover:bg-gray-50"
+              >
+                <RefreshCw className={`h-4 w-4 ${loadingModels ? 'animate-spin' : ''}`} />
+                <span>Models</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Input - Only show when there are messages */}
       {messages.length > 0 && (
         <div 
@@ -1068,7 +1321,7 @@ export default function ChatClient({
                       ) : (
                         <>
                           <span>Press</span>
-                          <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-xs font-mono">Enter</kbd>
+                          <kbd className="px-1.5 py-0.5 bg-gray-800 text-gray-100 rounded text-xs font-mono border border-gray-600">Enter</kbd>
                           <span>to send</span>
                         </>
                       )}

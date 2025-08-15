@@ -238,7 +238,7 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="flex flex-col">
+      <SidebarContent className="flex flex-col overflow-hidden">
         {/* New Chat Button */}
         <SidebarGroup>
           <SidebarGroupContent>
@@ -304,8 +304,8 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
         {/* Chat History */}
         <SidebarGroup className="flex-1 min-h-0">
           <SidebarGroupLabel>Recent Chats</SidebarGroupLabel>
-          <SidebarGroupContent className="flex-1">
-            <ScrollArea className="h-full">
+          <SidebarGroupContent className="flex-1 max-w-full">
+            <ScrollArea className="h-full overflow-hidden [&>[data-radix-scroll-area-scrollbar]]:hidden">
               {loadingChats ? (
                 <div className="p-4 text-center text-sidebar-foreground/70 text-sm">
                   Loading chats...
@@ -316,14 +316,14 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
                 </div>
               ) : (
                 <div className="relative">
-                  <SidebarMenu className="px-2">
+                  <SidebarMenu className="px-2 max-w-full">
                     {chats.map((chat) => {
                     const firstConversation = chat.conversations[0];
                     const isRenaming = renamingId === chat.id;
                     console.log(`Chat ${chat.id} - isRenaming: ${isRenaming}, renamingId: ${renamingId}`);
                     return (
                       <SidebarMenuItem key={chat.id}>
-                        <div className="flex items-start w-full group/item relative">
+                        <div className="flex items-start w-full group/item relative max-w-full">
                           <SidebarMenuButton
                             asChild
                             isActive={currentChatId === chat.id}
@@ -332,7 +332,7 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
                             <button
                               onClick={() => isRenaming ? undefined : handleChatClick(chat.id, firstConversation?.id)}
                               disabled={navigatingToChatId === chat.id}
-                              className="flex flex-col items-start w-full text-left px-1.5 py-1.5 hover:bg-sidebar-accent rounded-md transition-colors"
+                              className="flex flex-col items-start w-full text-left px-1.5 py-1.5 hover:bg-sidebar-accent rounded-md transition-colors max-w-full overflow-hidden"
                             >
                               <div className="flex items-center justify-between w-full">
                                 {isRenaming ? (
@@ -357,7 +357,7 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
                                     )}
                                   </div>
                                 ) : (
-                                  <span className="truncate font-medium flex-1 mr-2">
+                                  <span className="truncate font-medium flex-1 mr-2 max-w-[180px]">
                                     {console.log('Displaying title for chat:', chat.id, 'title:', chat.title)}
                                     {chat.title || 'Untitled Chat'}
                                   </span>

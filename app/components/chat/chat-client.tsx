@@ -1050,7 +1050,7 @@ export default function ChatClient({
                       {isLoading && (
                         <div className="mt-4 flex items-center justify-center space-x-2 text-sm text-gray-500 animate-fade-in">
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>AI is thinking... Click Stop to interrupt</span>
+                          <span>AI is thinking...</span>
                         </div>
                       )}
                     </form>
@@ -1207,29 +1207,14 @@ export default function ChatClient({
                 {displayedMessages.map((message, index) => (
                   <div
                     key={message.id}
-                    className={`flex items-start space-x-4 animate-fade-in ${
-                      message.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''
+                    className={`animate-fade-in ${
+                      message.role === 'user' ? 'text-right' : 'text-left'
                     }`}
                     style={{ animationDelay: `${index * 0.1}s` }}
                   >
-                    {/* Avatar */}
-                    <div className={`
-                      flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-sm transition-all duration-200
-                      ${message.role === 'user' 
-                        ? 'bg-blue-600 text-white shadow-blue-100' 
-                        : 'bg-gray-100 text-gray-600 shadow-gray-100'
-                      }
-                    `}>
-                      {message.role === 'user' ? (
-                        <User className="w-5 h-5" />
-                      ) : (
-                        <Bot className="w-5 h-5" />
-                      )}
-                    </div>
-                    
                     {/* Message Content */}
                     <div className={`
-                      flex-1 max-w-4xl group
+                      max-w-4xl group
                       ${message.role === 'user' ? 'text-right' : 'text-left'}
                     `}>
                       {/* Message Bubble */}
@@ -1283,20 +1268,12 @@ export default function ChatClient({
                           )}
                         </div>
                         
-                        {/* Message Tail */}
-                        <div className={`
-                          absolute top-4 w-3 h-3 transform rotate-45
-                          ${message.role === 'user'
-                            ? 'bg-blue-600 -right-1'
-                            : 'bg-white border-r border-b border-gray-100 -left-1'
-                          }
-                        `} />
                       </div>
                       
                       {/* Timestamp and Edit Icon */}
                       <div className={`
                         mt-1 text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center space-x-2
-                        ${message.role === 'user' ? 'justify-end mr-2' : 'justify-start ml-2'}
+                        ${message.role === 'user' ? 'justify-end' : 'justify-start'}
                       `}>
                         <span>
                           {message.createdAt ? new Date(message.createdAt).toLocaleTimeString([], { 
@@ -1329,49 +1306,27 @@ export default function ChatClient({
                     </div>
                   </div>
                 ))}
-                {isLoading && (
-                  <div className="flex items-start space-x-4 animate-fade-in">
-                    {/* AI Avatar */}
-                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-100 text-gray-600 shadow-sm flex items-center justify-center">
-                      <Bot className="w-5 h-5" />
-                    </div>
-                    
-                    {/* Loading Bubble */}
-                    <div className="flex-1 max-w-4xl">
+                {/* Writing indicator when AI is loading but hasn't started streaming yet */}
+                {isLoading && !(messages.length > 0 && messages[messages.length - 1].role === 'assistant') && (
+                  <div className="animate-fade-in text-left">
+                    <div className="max-w-4xl group">
                       <div className="relative inline-block max-w-[85%] rounded-2xl bg-white border border-gray-100 shadow-sm">
                         <div className="px-5 py-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div className="flex space-x-1">
-                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                              </div>
-                              <span className="text-sm text-gray-600 font-medium">
-                                {selectedModel ? 
-                                  availableModels.find(m => m.fullId === selectedModel)?.name || selectedModel.split('/').pop()
-                                  : availableProviders.find(p => p.id === provider)?.name
-                                } is thinking...
-                              </span>
+                          <div className="flex items-center space-x-3">
+                            <Brain className="h-4 w-4 text-gray-400" />
+                            <div className="flex space-x-1">
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                             </div>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={handleStop}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50 h-7 px-2 ml-4"
-                            >
-                              <Square className="w-3 h-3" />
-                              <span className="ml-1 text-xs">Stop</span>
-                            </Button>
+                            <span className="text-sm text-gray-600">Writing...</span>
                           </div>
                         </div>
-                        
-                        {/* Loading Bubble Tail */}
-                        <div className="absolute top-4 w-3 h-3 bg-white border-r border-b border-gray-100 transform rotate-45 -left-1" />
                       </div>
                     </div>
                   </div>
                 )}
+                
                 <div ref={messagesEndRef} />
               </div>
             )}

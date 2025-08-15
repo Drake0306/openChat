@@ -118,6 +118,102 @@ export async function saveMessage(
   }
 }
 
+// Update a message's content
+export async function updateMessage(
+  messageId: string,
+  content: string
+): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error('Not authenticated');
+  }
+
+  try {
+    // Skip updating if it's a temporary message ID
+    if (messageId.startsWith('temp-')) {
+      console.log('Temporary message, skipping database update');
+      return;
+    }
+
+    // Verify the message belongs to the user through conversation and chat
+    const message = await db.message.findFirst({
+      where: { 
+        id: messageId,
+        conversation: {
+          chat: {
+            userId: session.user.id,
+          }
+        }
+      },
+    });
+
+    if (!message) {
+      throw new Error('Message not found or not authorized');
+    }
+
+    await db.message.update({
+      where: { id: messageId },
+      data: { content },
+    });
+
+    console.log('Message updated:', messageId);
+  } catch (error) {
+    console.error('Error updating message:', error);
+    throw error;
+  }
+}
+
+// Delete messages after a certain message (for edit functionality)
+export async function deleteMessagesAfter(
+  conversationId: string,
+  afterMessageId: string
+): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error('Not authenticated');
+  }
+
+  try {
+    // Skip deleting if it's a temporary conversation ID
+    if (conversationId.startsWith('temp-')) {
+      console.log('Temporary conversation, skipping database delete');
+      return;
+    }
+
+    // Get the message we want to keep and its timestamp
+    const targetMessage = await db.message.findFirst({
+      where: {
+        id: afterMessageId,
+        conversationId,
+        conversation: {
+          chat: {
+            userId: session.user.id,
+          }
+        }
+      },
+    });
+
+    if (!targetMessage) {
+      throw new Error('Target message not found or not authorized');
+    }
+
+    // Delete all messages in the conversation that come after the target message
+    await db.message.deleteMany({
+      where: {
+        conversationId,
+        createdAt: {
+          gt: targetMessage.createdAt,
+        },
+      },
+    });
+
+    console.log('Messages deleted after:', afterMessageId);
+  } catch (error) {
+    console.error('Error deleting messages:', error);
+    throw error;
+  }
+}
+
 // Get conversation with messages
 export async function getConversation(conversationId: string): Promise<ChatConversation | null> {
   const session = await auth();
@@ -352,6 +448,54 @@ export async function deleteChat(chatId: string): Promise<void> {
     });
   } catch (error) {
     console.error('Error deleting chat:', error);
+    throw error;
+  }
+}
+
+// Update conversation provider and model
+export async function updateConversationSettings(
+  conversationId: string,
+  provider: string,
+  model?: string
+): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error('Not authenticated');
+  }
+
+  try {
+    // Skip updating if it's a temporary conversation ID
+    if (conversationId.startsWith('temp-')) {
+      console.log('Temporary conversation, skipping provider/model update');
+      return;
+    }
+
+    // Verify the conversation belongs to the user
+    const conversation = await db.conversation.findFirst({
+      where: {
+        id: conversationId,
+        chat: {
+          userId: session.user.id,
+        }
+      },
+    });
+
+    if (!conversation) {
+      throw new Error('Conversation not found or not authorized');
+    }
+
+    await db.conversation.update({
+      where: { id: conversationId },
+      data: {
+        provider,
+        model,
+        updatedAt: new Date(),
+      },
+    });
+
+    console.log('Conversation settings updated:', { conversationId, provider, model });
+  } catch (error) {
+    console.error('Error updating conversation settings:', error);
     throw error;
   }
 }

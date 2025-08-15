@@ -188,16 +188,19 @@ export function useChatPersistence({ messages, provider, model, existingChatId, 
     };
   }, [messages]);
 
-  // Reset state when provider/model changes (but not for existing chats)
+  // Handle provider/model changes
   useEffect(() => {
-    if (!existingChatId && !existingConversationId) {
+    // For new chats with no messages, reset state when provider/model changes
+    if (!existingChatId && !existingConversationId && messages.length === 0) {
       setIsInitialized(false);
       setChatId(null);
       setConversationId(null);
       lastMessageCountRef.current = 0;
       hasSavedTitleRef.current = false;
     }
-  }, [provider, model, existingChatId, existingConversationId]);
+    // For chats with existing messages, keep the same chat but the conversation 
+    // will continue with the new provider/model settings
+  }, [provider, model, existingChatId, existingConversationId, messages.length]);
 
   return {
     chatId,

@@ -94,6 +94,16 @@
     scroll-behavior: smooth;
   }
   
+  .smooth-scroll-container {
+    scroll-behavior: smooth;
+    scroll-padding-top: 2rem;
+    scroll-padding-bottom: 2rem;
+  }
+  
+  .smooth-scroll-container * {
+    scroll-behavior: smooth;
+  }
+  
   .message-enter {
     animation: messageSlideIn 0.3s ease-out forwards;
     opacity: 0;

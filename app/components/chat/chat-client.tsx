@@ -8,10 +8,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Bot, User, Send, Loader2, RefreshCw, Monitor, Cpu, Zap, Square, Save, Check, ChevronDown, Sparkles, MessageCircle, Lightbulb, Code, HelpCircle } from 'lucide-react';
+import { Bot, User, Send, Loader2, RefreshCw, Monitor, Cpu, Zap, Square, Save, Check, ChevronDown, Sparkles, MessageCircle, Lightbulb, Code, HelpCircle, Edit2, ChevronUp, ChevronDown as ScrollDown } from 'lucide-react';
 import MessageRenderer from './message-renderer';
 import { useChatPersistence } from '../../hooks/use-chat-persistence';
 import type { Chat, ChatConversation } from '../../../lib/chat-actions';
+import { updateMessage, deleteMessagesAfter, updateConversationSettings } from '../../../lib/chat-actions';
+import { Message } from 'ai/react';
+
+interface ExtendedMessage extends Message {
+  model?: string;
+  provider?: string;
+}
 
 interface ChatClientProps {
   availableProviders: { 
@@ -57,8 +64,13 @@ export default function ChatClient({
   const [loadingModels, setLoadingModels] = useState(false);
   const [loadingChat, setLoadingChat] = useState(false);
   const [showInputAnimation, setShowInputAnimation] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputContainerRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   
   // Initialize chat with existing messages if available
   const initialMessages = currentConversation?.messages.map(msg => ({
@@ -66,9 +78,14 @@ export default function ChatClient({
     role: msg.role,
     content: msg.content,
     createdAt: msg.createdAt,
+    // Add model/provider info if available from conversation
+    ...(msg.role === 'assistant' && {
+      model: currentConversation.model,
+      provider: currentConversation.provider
+    })
   })) || [];
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading, stop, setMessages } = useChat({
+  const { messages, input, handleInputChange, handleSubmit, isLoading, stop, setMessages, append } = useChat({
     api: '/api/chat',
     body: { provider, model: selectedModel },
     initialMessages,
@@ -109,7 +126,38 @@ export default function ChatClient({
   });
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const scrollElement = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (scrollElement && messagesEndRef.current) {
+      // Use smooth scroll to the bottom element
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'end'
+      });
+    }
+  };
+
+  const scrollToTop = () => {
+    const scrollElement = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (scrollElement) {
+      scrollElement.scrollTo({ 
+        top: 0, 
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const handleScroll = () => {
+    const scrollElement = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (scrollElement) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollElement;
+      const scrollThreshold = 100; // Show buttons when 100px from top/bottom
+      
+      // Show scroll to top if user has scrolled down from the top
+      setShowScrollToTop(scrollTop > scrollThreshold);
+      
+      // Show scroll to bottom if user is not near the bottom
+      setShowScrollToBottom(scrollHeight - scrollTop - clientHeight > scrollThreshold);
+    }
   };
 
   useEffect(() => {
@@ -119,6 +167,36 @@ export default function ChatClient({
       setTimeout(() => setShowInputAnimation(true), 300);
     }
   }, [messages, showInputAnimation]);
+
+  // Set up scroll listener for showing/hiding scroll buttons
+  useEffect(() => {
+    const scrollElement = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (scrollElement) {
+      scrollElement.addEventListener('scroll', handleScroll);
+      // Initial check
+      handleScroll();
+      
+      return () => {
+        scrollElement.removeEventListener('scroll', handleScroll);
+      };
+    }
+  }, [messages]);
+
+  // Update conversation settings when provider or model changes (for existing conversations with messages)
+  useEffect(() => {
+    const updateConversationProviderModel = async () => {
+      if (conversationId && messages.length > 0 && !isLoading) {
+        try {
+          await updateConversationSettings(conversationId, provider, selectedModel);
+          console.log('Updated conversation settings:', { conversationId, provider, model: selectedModel });
+        } catch (error) {
+          console.error('Failed to update conversation settings:', error);
+        }
+      }
+    };
+
+    updateConversationProviderModel();
+  }, [provider, selectedModel, conversationId, messages.length, isLoading]);
 
   // Fetch available models when provider changes
   useEffect(() => {
@@ -181,6 +259,139 @@ export default function ChatClient({
 
   const handleStop = () => {
     stop();
+  };
+
+  const handleEditMessage = (messageId: string, content: string) => {
+    setEditingMessageId(messageId);
+    setEditingContent(content);
+  };
+
+  const handleSaveEdit = async () => {
+    if (editingMessageId && editingContent.trim()) {
+      // Find the index of the message being edited
+      const editedMessageIndex = messages.findIndex(msg => msg.id === editingMessageId);
+      
+      if (editedMessageIndex !== -1) {
+        try {
+          // Update the message in the database first
+          await updateMessage(editingMessageId, editingContent.trim());
+          
+          // Delete all messages after this one in the database
+          if (conversationId) {
+            await deleteMessagesAfter(conversationId, editingMessageId);
+          }
+          
+          // Create new messages array with only messages up to and including the edited one
+          const messagesUpToEdit = messages.slice(0, editedMessageIndex);
+          const editedMessage = { 
+            ...messages[editedMessageIndex], 
+            content: editingContent.trim() 
+          };
+          
+          // Set the updated messages (removing all subsequent messages)
+          const newMessages = [...messagesUpToEdit, editedMessage];
+          setMessages(newMessages);
+          
+          // Reset editing state
+          setEditingMessageId(null);
+          setEditingContent('');
+          
+          // Generate new AI response based on the updated conversation
+          // We need to wait a bit to ensure the UI state is updated
+          setTimeout(() => {
+            // Since we already have the updated user message in our array,
+            // we can trigger the AI response directly using the existing conversation
+            const conversationForAI = newMessages.map(msg => ({
+              role: msg.role,
+              content: msg.content,
+            }));
+            
+            // Call the chat API with the updated conversation
+            fetch('/api/chat', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                messages: conversationForAI,
+                provider,
+                model: selectedModel,
+              }),
+            })
+            .then(response => {
+              if (response.ok && response.body) {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let assistantMessage = '';
+                const assistantId = `msg_${Date.now()}`;
+
+                // Add initial assistant message
+                (setMessages as any)((prev: Message[]) => [...prev, {
+                  id: assistantId,
+                  role: 'assistant',
+                  content: '',
+                  createdAt: new Date(),
+                  model: selectedModel,
+                  provider: provider,
+                }]);
+
+                // Stream the response
+                const readStream = async () => {
+                  try {
+                    while (true) {
+                      const { done, value } = await reader.read();
+                      if (done) break;
+
+                      const chunk = decoder.decode(value);
+                      const lines = chunk.split('\n');
+
+                      for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                          const data = line.slice(6);
+                          if (data === '[DONE]') continue;
+                          
+                          try {
+                            const parsed = JSON.parse(data);
+                            if (parsed.choices?.[0]?.delta?.content) {
+                              assistantMessage += parsed.choices[0].delta.content;
+                              (setMessages as any)((prev: Message[]) => prev.map((msg: Message) => 
+                                msg.id === assistantId 
+                                  ? { ...msg, content: assistantMessage }
+                                  : msg
+                              ));
+                            }
+                          } catch (e) {
+                            // Skip invalid JSON
+                          }
+                        }
+                      }
+                    }
+                  } catch (error) {
+                    console.error('Error reading stream:', error);
+                  }
+                };
+                
+                readStream();
+              }
+            })
+            .catch(error => {
+              console.error('Error generating new response:', error);
+            });
+          }, 100);
+          
+        } catch (error) {
+          console.error('Error updating message:', error);
+          // Reset editing state even if update failed
+          setEditingMessageId(null);
+          setEditingContent('');
+        }
+      }
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingContent('');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -248,7 +459,7 @@ export default function ChatClient({
                 </h1>
                 <div className="flex items-center space-x-2">
                   <p className="text-sm text-gray-500">
-                    Chatting with {availableProviders.find(p => p.id === provider)?.name}
+                    {isLoading ? 'AI generating response...' : `Chatting with ${availableProviders.find(p => p.id === provider)?.name}`}
                   </p>
                   {selectedModel && (
                     <>
@@ -272,8 +483,8 @@ export default function ChatClient({
             </div>
           </div>
           <div className="flex items-center space-x-3">
-            <Select value={provider} onValueChange={setProvider}>
-              <SelectTrigger className="w-[180px]">
+            <Select value={provider} onValueChange={setProvider} disabled={isLoading}>
+              <SelectTrigger className={`w-[180px] ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 <SelectValue placeholder="Select a provider" />
               </SelectTrigger>
               <SelectContent>
@@ -299,11 +510,11 @@ export default function ChatClient({
                 <Select 
                   value={selectedModel} 
                   onValueChange={setSelectedModel}
-                  disabled={loadingModels || availableModels.length === 0}
+                  disabled={loadingModels || availableModels.length === 0 || isLoading}
                 >
-                  <SelectTrigger className="w-[200px]">
+                  <SelectTrigger className={`w-[200px] ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     <SelectValue 
-                      placeholder={loadingModels ? "Loading..." : "Select model"} 
+                      placeholder={isLoading ? "AI generating..." : loadingModels ? "Loading..." : "Select model"} 
                     />
                   </SelectTrigger>
                   <SelectContent>
@@ -322,7 +533,7 @@ export default function ChatClient({
                   variant="outline"
                   size="sm"
                   onClick={refreshModels}
-                  disabled={loadingModels}
+                  disabled={loadingModels || isLoading}
                   className="flex items-center space-x-1"
                 >
                   <RefreshCw className={`h-4 w-4 ${loadingModels ? 'animate-spin' : ''}`} />
@@ -336,7 +547,7 @@ export default function ChatClient({
 
       {/* Messages */}
       <div className="flex-1 overflow-hidden min-h-0 relative">
-        <ScrollArea className="h-full">
+        <ScrollArea ref={scrollAreaRef} className="h-full smooth-scroll-container">
           <div className="max-w-4xl mx-auto p-6 relative">
             {/* Subtle background pattern for active chats */}
             {messages.length > 0 && (
@@ -609,9 +820,37 @@ export default function ChatClient({
                           ${message.role === 'user' ? 'px-4 py-3' : 'px-5 py-4'}
                         `}>
                           {message.role === 'user' ? (
-                            <div className="text-white leading-relaxed whitespace-pre-wrap">
-                              {message.content}
-                            </div>
+                            editingMessageId === message.id ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  value={editingContent}
+                                  onChange={(e) => setEditingContent(e.target.value)}
+                                  className="text-white bg-blue-700/50 border-blue-400 placeholder:text-blue-200 focus:border-blue-300 min-h-[60px] resize-none"
+                                  placeholder="Edit your message..."
+                                />
+                                <div className="flex items-center space-x-2 justify-end">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={handleCancelEdit}
+                                    className="text-white hover:bg-blue-700/50 h-7 px-2 text-xs"
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={handleSaveEdit}
+                                    className="bg-white text-blue-600 hover:bg-gray-100 h-7 px-3 text-xs"
+                                  >
+                                    Save
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-white leading-relaxed whitespace-pre-wrap">
+                                {message.content}
+                              </div>
+                            )
                           ) : (
                             <div className="prose prose-sm max-w-none">
                               <MessageRenderer content={message.content} />
@@ -629,15 +868,38 @@ export default function ChatClient({
                         `} />
                       </div>
                       
-                      {/* Timestamp */}
+                      {/* Timestamp and Edit Icon */}
                       <div className={`
-                        mt-1 text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200
-                        ${message.role === 'user' ? 'text-right mr-2' : 'text-left ml-2'}
+                        mt-1 text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center space-x-2
+                        ${message.role === 'user' ? 'justify-end mr-2' : 'justify-start ml-2'}
                       `}>
-                        {message.createdAt ? new Date(message.createdAt).toLocaleTimeString([], { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        }) : 'Just now'}
+                        <span>
+                          {message.createdAt ? new Date(message.createdAt).toLocaleTimeString([], { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          }) : 'Just now'}
+                        </span>
+                        {/* Show model info for assistant messages */}
+                        {message.role === 'assistant' && ((message as ExtendedMessage).model || (message as ExtendedMessage).provider) && (
+                          <>
+                            <span className="text-gray-300">•</span>
+                            <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">
+                              {(message as ExtendedMessage).model ? 
+                                availableModels.find(m => m.fullId === (message as ExtendedMessage).model)?.name || (message as ExtendedMessage).model?.split('/').pop() 
+                                : availableProviders.find(p => p.id === (message as ExtendedMessage).provider)?.name
+                              }
+                            </span>
+                          </>
+                        )}
+                        {message.role === 'user' && editingMessageId !== message.id && (
+                          <button
+                            onClick={() => handleEditMessage(message.id, message.content)}
+                            className="text-gray-400 hover:text-gray-600 transition-colors duration-200 p-1 rounded hover:bg-gray-100"
+                            title="Edit message"
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -661,7 +923,10 @@ export default function ChatClient({
                                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                               </div>
                               <span className="text-sm text-gray-600 font-medium">
-                                {availableProviders.find(p => p.id === provider)?.name} is thinking...
+                                {selectedModel ? 
+                                  availableModels.find(m => m.fullId === selectedModel)?.name || selectedModel.split('/').pop()
+                                  : availableProviders.find(p => p.id === provider)?.name
+                                } is thinking...
                               </span>
                             </div>
                             <Button
@@ -687,6 +952,37 @@ export default function ChatClient({
             )}
           </div>
         </ScrollArea>
+        
+        {/* Floating Scroll Buttons */}
+        {messages.length > 0 && (
+          <div className="fixed top-1/2 right-6 transform -translate-y-1/2 z-50 flex flex-col space-y-2">
+            {/* Scroll to Top Button */}
+            <button
+              onClick={scrollToTop}
+              className={`w-12 h-12 rounded-xl bg-white/95 backdrop-blur-sm border border-gray-200 text-gray-600 shadow-lg hover:shadow-xl hover:bg-white active:scale-95 active:shadow-md group transition-all duration-300 ease-out ${
+                showScrollToTop 
+                  ? 'opacity-100 scale-100 translate-y-0' 
+                  : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
+              }`}
+              title="Scroll to top"
+            >
+              <ChevronUp className="h-5 w-5 mx-auto group-active:scale-90 transition-transform duration-100" />
+            </button>
+            
+            {/* Scroll to Bottom Button */}
+            <button
+              onClick={scrollToBottom}
+              className={`w-12 h-12 rounded-xl bg-white/95 backdrop-blur-sm border border-gray-200 text-gray-600 shadow-lg hover:shadow-xl hover:bg-white active:scale-95 active:shadow-md group transition-all duration-300 ease-out ${
+                showScrollToBottom 
+                  ? 'opacity-100 scale-100 translate-y-0' 
+                  : 'opacity-0 scale-95 translate-y-2 pointer-events-none'
+              }`}
+              title="Scroll to bottom"
+            >
+              <ScrollDown className="h-5 w-5 mx-auto group-active:scale-90 transition-transform duration-100" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Input - Only show when there are messages */}

@@ -80,9 +80,19 @@ export default function ChatClient({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSecondDropdownOpen, setIsSecondDropdownOpen] = useState(false);
 
+  // Lazy loading state
+  const [visibleMessages, setVisibleMessages] = useState(20); // Show last 20 messages initially
+  const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
+  
+  // Animation state for refresh text
+  const [showPoweredBy, setShowPoweredBy] = useState(true);
+  const [showModelInfo, setShowModelInfo] = useState(true);
+  const [isManualRefresh, setIsManualRefresh] = useState(false);
+
   // Provider models cache for dropdown
   const [providerModelsCache, setProviderModelsCache] = useState<Record<string, Model[]>>({});
   const [loadingProviderModels, setLoadingProviderModels] = useState<string | null>(null);
+  const [refreshingModels, setRefreshingModels] = useState(false);
 
   const handleProviderClick = async (providerId: string) => {
     setSelectedModelProvider(providerId);
@@ -152,9 +162,26 @@ export default function ChatClient({
 
   // Handle model selection in dropdown
   const handleModelSelect = (modelId: string, providerId: string) => {
-    setProvider(providerId);
-    setSelectedModel(modelId);
-    onModelChange?.(modelId, providerId);
+    // Trigger fade animations only when actually selecting a different model
+    if (selectedModel !== modelId || provider !== providerId) {
+      setRefreshingModels(true);
+      setLoadingModels(true);
+      setShowPoweredBy(false);
+      setShowModelInfo(false);
+      
+      setTimeout(() => {
+        setProvider(providerId);
+        setSelectedModel(modelId);
+        onModelChange?.(modelId, providerId);
+        
+        setTimeout(() => {
+          setRefreshingModels(false);
+          setLoadingModels(false);
+          setShowPoweredBy(true);
+          setShowModelInfo(true);
+        }, 300);
+      }, 100);
+    }
     
     // Add beautiful closing animation
     const dropdownContent = document.querySelector('[role="menu"]') as HTMLElement;
@@ -203,6 +230,29 @@ export default function ChatClient({
         }
       }
       
+      @keyframes fadeInDown {
+        from {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      
+      .animate-fadeInUp {
+        animation: fadeInUp 0.4s ease-out forwards;
+      }
+      
+      .animate-fadeInDown {
+        animation: fadeInDown 0.8s ease-out forwards;
+      }
+      
+      .fade-transition {
+        transition: all 0.3s ease-in-out;
+      }
+      
       .animate-slideIn {
         animation: slideIn 0.3s ease-out;
       }
@@ -229,6 +279,76 @@ export default function ChatClient({
     body: { provider, model: selectedModel },
     initialMessages,
   });
+
+  // Get messages to display with lazy loading
+  const displayedMessages = messages.slice(-visibleMessages);
+  const hasMoreMessages = messages.length > visibleMessages;
+
+  // Load more messages when scrolling to top
+  const loadMoreMessages = () => {
+    if (isLoadingOlderMessages || !hasMoreMessages) return;
+    
+    setIsLoadingOlderMessages(true);
+    
+    // Store current scroll position
+    const scrollElement = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    const currentScrollHeight = scrollElement?.scrollHeight || 0;
+    
+    // Simulate loading delay (you can remove this in production)
+    setTimeout(() => {
+      setVisibleMessages(prev => Math.min(prev + 20, messages.length));
+      setIsLoadingOlderMessages(false);
+      
+      // Restore scroll position after loading
+      setTimeout(() => {
+        if (scrollElement) {
+          const newScrollHeight = scrollElement.scrollHeight;
+          const scrollDiff = newScrollHeight - currentScrollHeight;
+          scrollElement.scrollTop = scrollElement.scrollTop + scrollDiff;
+        }
+      }, 10);
+    }, 300);
+  };
+
+  // Refresh models function
+  const refreshModels = async () => {
+    setIsManualRefresh(true); // Mark as manual refresh
+    setRefreshingModels(true);
+    setLoadingModels(true);
+    setShowPoweredBy(false); // Hide powered by text
+    setShowModelInfo(false); // Hide model info text
+    
+    const startTime = Date.now();
+    const minLoadingTime = 500; // Minimum 500ms loading time
+    
+    try {
+      // Clear cache
+      setAvailableModels([]);
+      setProviderModelsCache({});
+      
+      // Refetch models for current provider
+      if (provider) {
+        await fetchAvailableModels(provider);
+      }
+    } catch (error) {
+      console.error('Failed to refresh models:', error);
+    } finally {
+      // Ensure minimum loading time
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = Math.max(0, minLoadingTime - elapsedTime);
+      
+      setTimeout(() => {
+        setRefreshingModels(false);
+        setLoadingModels(false);
+        // Show powered by text with animation after a brief delay
+        setTimeout(() => {
+          setShowPoweredBy(true);
+          setShowModelInfo(true); // Show both at the same time
+          setIsManualRefresh(false); // Reset manual refresh flag
+        }, 150);
+      }, remainingTime);
+    }
+  };
 
   // Reset messages and settings when switching between chats/conversations
   useEffect(() => {
@@ -290,12 +410,18 @@ export default function ChatClient({
     if (scrollElement) {
       const { scrollTop, scrollHeight, clientHeight } = scrollElement;
       const scrollThreshold = 100; // Show buttons when 100px from top/bottom
+      const loadMoreThreshold = 200; // Load more when 200px from top
       
       // Show scroll to top if user has scrolled down from the top
       setShowScrollToTop(scrollTop > scrollThreshold);
       
       // Show scroll to bottom if user is not near the bottom
       setShowScrollToBottom(scrollHeight - scrollTop - clientHeight > scrollThreshold);
+      
+      // Load more messages when scrolling near the top
+      if (scrollTop < loadMoreThreshold && hasMoreMessages && !isLoadingOlderMessages) {
+        loadMoreMessages();
+      }
     }
   };
 
@@ -305,7 +431,14 @@ export default function ChatClient({
     if (messages.length > 0 && !showInputAnimation) {
       setTimeout(() => setShowInputAnimation(true), 300);
     }
-  }, [messages, showInputAnimation]);
+    
+    // Reset visible messages when switching conversations or when new messages arrive
+    if (messages.length <= 20) {
+      setVisibleMessages(messages.length);
+    } else if (visibleMessages < 20) {
+      setVisibleMessages(20);
+    }
+  }, [messages, showInputAnimation, visibleMessages]);
 
   // Set up scroll listener for showing/hiding scroll buttons
   useEffect(() => {
@@ -372,12 +505,6 @@ export default function ChatClient({
       setAvailableModels([]);
     } finally {
       setLoadingModels(false);
-    }
-  };
-
-  const refreshModels = () => {
-    if (provider) {
-      fetchAvailableModels(provider);
     }
   };
 
@@ -621,14 +748,25 @@ export default function ChatClient({
                     <h1 className="text-3xl font-bold text-gray-900 mb-3 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                       Welcome to OpenChat
                     </h1>
-                    <p className="text-lg text-gray-600 mb-2">
-                      Powered by {availableProviders.find(p => p.id === provider)?.name}
-                    </p>
-                    {selectedModel && (
-                      <p className="text-sm text-gray-500">
-                        Using <span className="font-medium bg-gray-100 px-2 py-1 rounded">{availableModels.find(m => m.fullId === selectedModel)?.name || selectedModel}</span>
+                    <div className="h-8 flex items-center justify-center mb-2">
+                      <p className="text-lg text-gray-600 transition-all duration-300">
+                        {refreshingModels || loadingModels ? (
+                          <span key="refreshing" className="flex items-center justify-center space-x-2 animate-fadeInUp">
+                            <span>Refreshing models</span>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          </span>
+                        ) : showPoweredBy ? (
+                          <span key={isManualRefresh ? `powered-${Date.now()}` : 'powered-static'} className={isManualRefresh ? "animate-fadeInDown" : ""}>Powered by {availableProviders.find(p => p.id === provider)?.name}</span>
+                        ) : null}
                       </p>
-                    )}
+                    </div>
+                    <div className="h-6 flex items-center justify-center">
+                      {selectedModel && showModelInfo && (
+                        <p key={isManualRefresh ? `model-${Date.now()}` : 'model-static'} className={`text-sm text-gray-500 transition-all duration-300 ${isManualRefresh ? "animate-fadeInDown" : ""}`}>
+                          Using <span className="font-medium bg-gray-100 px-2 py-1 rounded">{availableModels.find(m => m.fullId === selectedModel)?.name || selectedModel}</span>
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Central Input Box - Lovable.dev Style */}
@@ -652,8 +790,14 @@ export default function ChatClient({
                                     const IconComponent = getProviderIcon(provider);
                                     return (
                                       <>
-                                        <IconComponent className="h-3 w-3" />
-                                        <span className="text-sm font-medium">{currentProvider?.name || 'Models'}</span>
+                                        {refreshingModels || loadingModels ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <IconComponent className="h-3 w-3" />
+                                        )}
+                                        <span className="text-sm font-medium">
+                                          {currentProvider?.name || 'Models'}
+                                        </span>
                                         <ChevronDown className="h-3 w-3" />
                                       </>
                                     );
@@ -850,18 +994,13 @@ export default function ChatClient({
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => window.location.reload()}
-                              className="flex items-center space-x-1 bg-white hover:bg-gray-50 h-7 px-2 text-xs"
+                              onClick={refreshModels}
+                              disabled={refreshingModels}
+                              className="flex items-center bg-white hover:bg-gray-50 h-7 w-7 p-0"
                             >
-                              <RefreshCw className="h-3 w-3" />
-                              <span className="hidden sm:inline">Refresh</span>
+                              <RefreshCw className={`h-3 w-3 ${refreshingModels ? 'animate-spin' : ''}`} />
                             </Button>
                             
-                            {selectedModel && (
-                              <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 font-medium text-xs px-2 py-1">
-                                {selectedModel}
-                              </Badge>
-                            )}
                             
                           </div>
                         </div>
@@ -1046,7 +1185,26 @@ export default function ChatClient({
               </>
             ) : (
               <div className="space-y-4 pb-4">
-                {messages.map((message, index) => (
+                {/* Load More Indicator */}
+                {hasMoreMessages && (
+                  <div className="flex justify-center py-4">
+                    {isLoadingOlderMessages ? (
+                      <div className="flex items-center space-x-2 text-gray-500">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">Loading older messages...</span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={loadMoreMessages}
+                        className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                      >
+                        Load {Math.min(20, messages.length - visibleMessages)} more messages
+                      </button>
+                    )}
+                  </div>
+                )}
+                
+                {displayedMessages.map((message, index) => (
                   <div
                     key={message.id}
                     className={`flex items-start space-x-4 animate-fade-in ${
@@ -1281,8 +1439,14 @@ export default function ChatClient({
                             const IconComponent = getProviderIcon(provider);
                             return (
                               <>
-                                <IconComponent className="h-3 w-3" />
-                                <span className="text-sm font-medium">{currentProvider?.name || 'Models'}</span>
+                                {refreshingModels || loadingModels ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <IconComponent className="h-3 w-3" />
+                                )}
+                                <span className="text-sm font-medium">
+                                  {currentProvider?.name || 'Models'}
+                                </span>
                                 <ChevronDown className="h-3 w-3" />
                               </>
                             );
@@ -1479,11 +1643,11 @@ export default function ChatClient({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.location.reload()}
-                      className="flex items-center space-x-1 bg-white hover:bg-gray-50 h-7 px-2 text-xs"
+                      onClick={refreshModels}
+                      disabled={refreshingModels}
+                      className="flex items-center bg-white hover:bg-gray-50 h-7 w-7 p-0"
                     >
-                      <RefreshCw className="h-3 w-3" />
-                      <span className="hidden sm:inline">Refresh</span>
+                      <RefreshCw className={`h-3 w-3 ${refreshingModels ? 'animate-spin' : ''}`} />
                     </Button>
                     
                     {selectedModel && (

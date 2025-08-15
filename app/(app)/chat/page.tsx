@@ -1,8 +1,7 @@
 import { auth } from '../../../lib/auth';
 import { getAvailableProviders } from '../../../lib/llm-providers';
 import { getChat } from '../../../lib/chat-actions';
-import ChatClient from '../../components/chat/chat-client';
-import ChatLayout from '../../components/layout/chat-layout';
+import ChatPageClient from './chat-page-client';
 import { redirect } from 'next/navigation';
 
 interface ChatPageProps {
@@ -32,15 +31,14 @@ async function ChatPage({ searchParams }: ChatPageProps) {
   const isNewChat = !!searchParams.new;
   
   return (
-    <ChatLayout currentChatId={isNewChat ? undefined : searchParams.id}>
-      <ChatClient 
-        availableProviders={availableProviders}
-        user={session?.user}
-        existingChat={existingChat}
-        chatId={isNewChat ? undefined : searchParams.id}
-        conversationId={isNewChat ? undefined : searchParams.conversation}
-      />
-    </ChatLayout>
+    <ChatPageClient
+      availableProviders={availableProviders}
+      user={session?.user}
+      existingChat={existingChat}
+      chatId={isNewChat ? undefined : searchParams.id}
+      conversationId={isNewChat ? undefined : searchParams.conversation}
+      isNewChat={isNewChat}
+    />
   );
 }
 

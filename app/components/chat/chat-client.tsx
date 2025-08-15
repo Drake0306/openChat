@@ -1,5 +1,7 @@
 'use client';
 
+import React from 'react';
+
 import { useState, useRef, useEffect } from 'react';
 import { useChat } from 'ai/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,6 +37,7 @@ interface ChatClientProps {
   existingChat?: Chat | null;
   chatId?: string;
   conversationId?: string;
+  onModelChange?: (model: string, provider: string) => void;
 }
 
 interface Model {
@@ -44,12 +47,14 @@ interface Model {
   ownedBy: string;
 }
 
+
 export default function ChatClient({ 
   availableProviders, 
   user, 
   existingChat,
   chatId: externalChatId,
-  conversationId: externalConversationId 
+  conversationId: externalConversationId,
+  onModelChange
 }: ChatClientProps) {
   // Get current conversation from existing chat
   const currentConversation = existingChat?.conversations.find(c => c.id === externalConversationId) || existingChat?.conversations[0];
@@ -69,11 +74,142 @@ export default function ChatClient({
   const [editingContent, setEditingContent] = useState('');
   const [showScrollToTop, setShowScrollToTop] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
-  const [selectedMainOption, setSelectedMainOption] = useState('chat');
   const [showTopSelector, setShowTopSelector] = useState(false);
+  const [selectedModelProvider, setSelectedModelProvider] = useState<string | null>(null);
+  const [showModelScreen, setShowModelScreen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isSecondDropdownOpen, setIsSecondDropdownOpen] = useState(false);
+
+  // Provider models cache for dropdown
+  const [providerModelsCache, setProviderModelsCache] = useState<Record<string, Model[]>>({});
+  const [loadingProviderModels, setLoadingProviderModels] = useState<string | null>(null);
+
+  const handleProviderClick = async (providerId: string) => {
+    setSelectedModelProvider(providerId);
+    setShowModelScreen(true);
+    
+    // Fetch models for this provider if not already cached
+    if (!providerModelsCache[providerId]) {
+      setLoadingProviderModels(providerId);
+      try {
+        const response = await fetch(`/api/models?provider=${providerId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setProviderModelsCache(prev => ({
+            ...prev,
+            [providerId]: data.models || []
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to fetch models for provider:', providerId, error);
+        setProviderModelsCache(prev => ({
+          ...prev,
+          [providerId]: []
+        }));
+      } finally {
+        setLoadingProviderModels(null);
+      }
+    }
+  };
+
+  const handleBackToProviders = () => {
+    setSelectedModelProvider(null);
+    setShowModelScreen(false);
+  };
+
+
+  // Get icon for provider
+  const getProviderIcon = (providerId: string) => {
+    switch (providerId) {
+      case 'local-llm':
+        return Cpu;
+      case 'ollama':
+        return Zap;
+      case 'anthropic':
+        return Brain;
+      case 'openai':
+        return Settings;
+      default:
+        return Monitor;
+    }
+  };
+
+  // Get description for provider
+  const getProviderDescription = (providerId: string) => {
+    switch (providerId) {
+      case 'local-llm':
+        return 'Local models via LM Studio';
+      case 'ollama':
+        return 'Open source models';
+      case 'anthropic':
+        return 'Claude AI models';
+      case 'openai':
+        return 'GPT and ChatGPT models';
+      default:
+        return 'AI model provider';
+    }
+  };
+
+  // Handle model selection in dropdown
+  const handleModelSelect = (modelId: string, providerId: string) => {
+    setProvider(providerId);
+    setSelectedModel(modelId);
+    onModelChange?.(modelId, providerId);
+    
+    // Add beautiful closing animation
+    const dropdownContent = document.querySelector('[role="menu"]') as HTMLElement;
+    if (dropdownContent) {
+      dropdownContent.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+      dropdownContent.style.transform = 'scale(0.95) translateY(-8px)';
+      dropdownContent.style.opacity = '0';
+      dropdownContent.style.filter = 'blur(2px)';
+    }
+    
+    // Reset screens and close dropdowns after animation
+    setTimeout(() => {
+      setSelectedModelProvider(null);
+      setShowModelScreen(false);
+      setIsDropdownOpen(false);
+      setIsSecondDropdownOpen(false);
+    }, 400);
+  };
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputContainerRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // Add CSS animations to head
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateX(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+      
+      .animate-slideIn {
+        animation: slideIn 0.3s ease-out;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
   
   // Initialize chat with existing messages if available
   const initialMessages = currentConversation?.messages.map(msg => ({
@@ -200,6 +336,11 @@ export default function ChatClient({
 
     updateConversationProviderModel();
   }, [provider, selectedModel, conversationId, messages.length, isLoading]);
+
+  // Notify parent component of model/provider changes
+  useEffect(() => {
+    onModelChange?.(selectedModel, provider);
+  }, [provider, selectedModel, onModelChange]);
 
   // Fetch available models when provider changes
   useEffect(() => {
@@ -451,102 +592,6 @@ export default function ChatClient({
         </div>
       )}
       
-      {/* Header */}
-      <div className="bg-white border-b px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <div className="flex items-center space-x-4">
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">
-                  {existingChat?.title || 'Chat'}
-                </h1>
-                <div className="flex items-center space-x-2">
-                  <p className="text-sm text-gray-500">
-                    {isLoading ? 'AI generating response...' : `Chatting with ${availableProviders.find(p => p.id === provider)?.name}`}
-                  </p>
-                  {selectedModel && (
-                    <>
-                      <span className="text-gray-300">•</span>
-                      <Badge variant="outline" className="text-xs">
-                        {availableModels.find(m => m.fullId === selectedModel)?.name || selectedModel}
-                      </Badge>
-                    </>
-                  )}
-                  {conversationId && (
-                    <>
-                      <span className="text-gray-300">•</span>
-                      <div className="flex items-center space-x-1 text-xs text-green-600">
-                        <Check className="h-3 w-3" />
-                        <span>Auto-saving</span>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <Select value={provider} onValueChange={setProvider} disabled={isLoading}>
-              <SelectTrigger className={`w-[180px] ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                <SelectValue placeholder="Select a provider" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableProviders.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    <div className="flex items-center space-x-2">
-                      {p.id === 'local-llm' && <Cpu className="h-4 w-4" />}
-                      {p.id === 'ollama' && <Zap className="h-4 w-4" />}
-                      <span>{p.name}</span>
-                      {p.supportsModelSelection && (
-                        <Badge variant="secondary" className="text-xs">
-                          Models
-                        </Badge>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            {availableProviders.find(p => p.id === provider)?.supportsModelSelection && (
-              <>
-                <Select 
-                  value={selectedModel} 
-                  onValueChange={setSelectedModel}
-                  disabled={loadingModels || availableModels.length === 0 || isLoading}
-                >
-                  <SelectTrigger className={`w-[200px] ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                    <SelectValue 
-                      placeholder={isLoading ? "AI generating..." : loadingModels ? "Loading..." : "Select model"} 
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableModels.map((model) => (
-                      <SelectItem key={model.fullId} value={model.fullId}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{model.name}</span>
-                          <span className="text-xs text-gray-500">{model.ownedBy}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={refreshModels}
-                  disabled={loadingModels || isLoading}
-                  className="flex items-center space-x-1"
-                >
-                  <RefreshCw className={`h-4 w-4 ${loadingModels ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline">Refresh</span>
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-hidden min-h-0 relative">
@@ -590,6 +635,237 @@ export default function ChatClient({
                   <div className="w-full max-w-2xl">
                     <form onSubmit={handleFormSubmit} className="relative">
                       <div className="relative bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden transition-all duration-300 hover:shadow-2xl">
+                        {/* Top Controls Bar inside new chat text box */}
+                        <div className="flex items-center justify-between px-6 py-3 bg-gray-50/50 border-b border-gray-100">
+                          {/* Main Selector */}
+                          <div className="flex items-center space-x-3">
+                            <DropdownMenu open={isDropdownOpen && !isLoading} onOpenChange={(open) => !isLoading && setIsDropdownOpen(open)}>
+                              <DropdownMenuTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  className="flex items-center space-x-2 bg-white hover:bg-gray-50 border border-blue-200 hover:border-blue-300 transition-all duration-200"
+                                  disabled={isLoading}
+                                >
+                                  {(() => {
+                                    const currentProvider = availableProviders.find(p => p.id === provider);
+                                    const IconComponent = getProviderIcon(provider);
+                                    return (
+                                      <>
+                                        <IconComponent className="h-3 w-3" />
+                                        <span className="text-sm font-medium">{currentProvider?.name || 'Models'}</span>
+                                        <ChevronDown className="h-3 w-3" />
+                                      </>
+                                    );
+                                  })()}
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent 
+                                className="w-[700px] max-w-4xl" 
+                                align="start"
+                                sideOffset={8}
+                              >
+                                <DropdownMenuLabel className="text-base font-semibold">Select Model Provider</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                
+                                {!showModelScreen && (
+                                  <div className="animate-slideIn">
+                                    {/* Model Providers */}
+                                    <div className="grid grid-cols-4 gap-3 p-4">
+                                      {availableProviders.map((provider, index) => {
+                                        const IconComponent = getProviderIcon(provider.id);
+                                        const cachedModels = providerModelsCache[provider.id];
+                                        const modelCount = cachedModels ? cachedModels.length : '?';
+                                        
+                                        return (
+                                          <div 
+                                            key={provider.id}
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              handleProviderClick(provider.id);
+                                            }}
+                                            className="group flex flex-col items-center space-y-3 p-5 cursor-pointer rounded-2xl border border-gray-100 bg-white hover:border-blue-200 hover:shadow-lg transition-all duration-300 ease-out transform hover:scale-105 hover:-translate-y-1"
+                                            style={{
+                                              animation: `fadeInUp 0.5s ease-out ${index * 0.1}s both`
+                                            }}
+                                          >
+                                            <div className="relative">
+                                              <div className="absolute inset-0 bg-blue-100 rounded-full scale-0 group-hover:scale-100 transition-transform duration-300 ease-out"></div>
+                                              <IconComponent className="relative h-10 w-10 text-blue-600 group-hover:text-blue-700 transition-colors duration-300 group-hover:scale-110" />
+                                            </div>
+                                            <div className="text-center">
+                                              <div className="text-sm font-semibold text-gray-900 group-hover:text-blue-900 transition-colors duration-300">{provider.name}</div>
+                                              <div className="text-xs text-gray-500 mt-1 group-hover:text-gray-600 transition-colors duration-300">{getProviderDescription(provider.id)}</div>
+                                              <div className="inline-flex items-center justify-center mt-2 px-2 py-1 bg-blue-50 text-blue-600 text-xs font-medium rounded-full group-hover:bg-blue-100 transition-colors duration-300">
+                                                {modelCount} models
+                                              </div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {showModelScreen && selectedModelProvider && (
+                                  <div className="animate-slideIn">
+                                    <DropdownMenuSeparator />
+                                    <div className="p-6">
+                                      {(() => {
+                                        const providerData = availableProviders.find(p => p.id === selectedModelProvider);
+                                        if (!providerData) return null;
+                                        
+                                        const IconComponent = getProviderIcon(selectedModelProvider);
+                                        const cachedModels = providerModelsCache[selectedModelProvider] || [];
+                                        const isLoading = loadingProviderModels === selectedModelProvider;
+                                        
+                                        return (
+                                          <div>
+                                            {/* Header */}
+                                            <div className="flex items-center justify-between mb-6">
+                                              <div className="flex items-center space-x-3">
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={handleBackToProviders}
+                                                  className="p-1 hover:bg-gray-100"
+                                                >
+                                                  <ChevronDown className="h-4 w-4 rotate-90" />
+                                                </Button>
+                                                <div className="flex items-center space-x-2">
+                                                  <IconComponent className="h-6 w-6 text-blue-600" />
+                                                  <div>
+                                                    <h3 className="font-semibold text-gray-900">{providerData.name}</h3>
+                                                    <p className="text-xs text-gray-500">{getProviderDescription(selectedModelProvider)}</p>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            </div>
+                                            
+                                            {/* Models List */}
+                                            <div className="space-y-4">
+                                              <h4 className="text-sm font-medium text-gray-700 mb-4">Available Models</h4>
+                                              
+                                              {/* Fixed height container to prevent layout shifts */}
+                                              <div className="h-60 overflow-y-auto">
+                                                {isLoading ? (
+                                                  <div className="flex items-center justify-center h-full">
+                                                    <div className="flex items-center space-x-2">
+                                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                                      <span className="text-sm text-gray-500">Loading models...</span>
+                                                    </div>
+                                                  </div>
+                                                ) : cachedModels.length === 0 ? (
+                                                  <div className="flex items-center justify-center h-full">
+                                                    <div className="text-center">
+                                                      <div className="text-sm text-gray-500">No models available</div>
+                                                      <div className="text-xs text-gray-400 mt-1">
+                                                        Make sure {providerData.name} is running and has models loaded
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                ) : (
+                                                  <div className="grid grid-cols-4 gap-4 p-2">
+                                                  {cachedModels.map((model, index) => {
+                                                    const isCurrentModel = selectedModel === model.fullId;
+                                                    const IconComponent = getProviderIcon(selectedModelProvider);
+                                                    return (
+                                                      <div
+                                                        key={model.fullId}
+                                                        onClick={(e) => {
+                                                          e.preventDefault();
+                                                          e.stopPropagation();
+                                                          
+                                                          // Add selection animation to clicked model
+                                                          const target = e.currentTarget as HTMLElement;
+                                                          target.style.transition = 'all 0.2s ease-out';
+                                                          target.style.transform = 'scale(0.95)';
+                                                          
+                                                          setTimeout(() => {
+                                                            target.style.transform = 'scale(1.05)';
+                                                            handleModelSelect(model.fullId, selectedModelProvider);
+                                                          }, 100);
+                                                        }}
+                                                        className={`group relative flex flex-col items-center justify-center p-4 rounded-2xl cursor-pointer transition-all duration-300 ease-out aspect-square transform hover:scale-105 hover:-translate-y-1 ${
+                                                          isCurrentModel 
+                                                            ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-400 shadow-lg shadow-blue-200/50 scale-105' 
+                                                            : 'bg-white hover:bg-gray-50 hover:shadow-lg hover:shadow-gray-200/50 border border-gray-200 hover:border-blue-200'
+                                                        }`}
+                                                        style={{
+                                                          animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`
+                                                        }}
+                                                      >
+                                                        <div className="relative mb-3">
+                                                          <div className={`absolute inset-0 rounded-full transition-all duration-300 ${
+                                                            isCurrentModel ? 'bg-blue-200 scale-100' : 'bg-gray-100 scale-0 group-hover:scale-100'
+                                                          }`}></div>
+                                                          <IconComponent className={`relative h-10 w-10 transition-all duration-300 group-hover:scale-110 ${
+                                                            isCurrentModel ? 'text-blue-700' : 'text-gray-600 group-hover:text-blue-600'
+                                                          }`} />
+                                                        </div>
+                                                        <div className="text-center">
+                                                          <div className={`text-xs font-semibold transition-colors duration-300 ${
+                                                            isCurrentModel ? 'text-blue-900' : 'text-gray-900 group-hover:text-blue-900'
+                                                          }`}>
+                                                            {model.name.length > 10 ? model.name.substring(0, 10) + '...' : model.name}
+                                                          </div>
+                                                          <div className={`text-xs mt-1 transition-colors duration-300 ${
+                                                            isCurrentModel ? 'text-blue-600' : 'text-gray-500 group-hover:text-gray-600'
+                                                          }`}>
+                                                            {model.ownedBy}
+                                                          </div>
+                                                        </div>
+                                                        {isCurrentModel && (
+                                                          <div className="absolute top-1 right-1">
+                                                            <div className="bg-blue-500 rounded-full p-1 shadow-lg">
+                                                              <Check className="h-3 w-3 text-white" />
+                                                            </div>
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                    );
+                                                  })}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
+                                  </div>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            
+                            {/* Status Badge for new chat */}
+                            <Badge variant="outline" className="bg-white/80 text-xs">
+                              New Chat
+                            </Badge>
+                          </div>
+                          
+                          {/* Refresh Controls */}
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.location.reload()}
+                              className="flex items-center space-x-1 bg-white hover:bg-gray-50 h-7 px-2 text-xs"
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                              <span className="hidden sm:inline">Refresh</span>
+                            </Button>
+                            
+                            {selectedModel && (
+                              <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 font-medium text-xs px-2 py-1">
+                                {selectedModel}
+                              </Badge>
+                            )}
+                            
+                          </div>
+                        </div>
+
                         <Textarea
                           value={input}
                           onChange={handleInputChange}
@@ -608,18 +884,6 @@ export default function ChatClient({
                           </div>
                           
                           <div className="flex items-center space-x-2">
-                            {isLoading && (
-                              <Button 
-                                type="button"
-                                onClick={handleStop}
-                                variant="outline" 
-                                size="sm"
-                                className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
-                              >
-                                <Square className="h-4 w-4" />
-                                <span className="ml-1">Stop</span>
-                              </Button>
-                            )}
                             
                             <Button 
                               type="submit" 
@@ -1004,20 +1268,25 @@ export default function ChatClient({
                 <div className="flex items-center justify-between px-5 py-3 bg-gray-50/50 border-b border-gray-100">
                   {/* Main Selector */}
                   <div className="flex items-center space-x-3">
-                    <DropdownMenu>
+                    <DropdownMenu open={isSecondDropdownOpen && !isLoading} onOpenChange={(open) => !isLoading && setIsSecondDropdownOpen(open)}>
                       <DropdownMenuTrigger asChild>
                         <Button 
-                          variant="outline" 
+                          variant="outline"
+                          disabled={isLoading} 
                           size="sm"
                           className="flex items-center space-x-2 bg-white hover:bg-gray-50 border border-blue-200 hover:border-blue-300 transition-all duration-200"
                         >
-                          {selectedMainOption === 'chat' && <MessageSquare className="h-3 w-3" />}
-                          {selectedMainOption === 'settings' && <Settings className="h-3 w-3" />}
-                          {selectedMainOption === 'data' && <Database className="h-3 w-3" />}
-                          {selectedMainOption === 'ai' && <Brain className="h-3 w-3" />}
-                          {selectedMainOption === 'themes' && <Palette className="h-3 w-3" />}
-                          <span className="capitalize text-sm font-medium">{selectedMainOption}</span>
-                          <ChevronDown className="h-3 w-3" />
+                          {(() => {
+                            const currentProvider = availableProviders.find(p => p.id === provider);
+                            const IconComponent = getProviderIcon(provider);
+                            return (
+                              <>
+                                <IconComponent className="h-3 w-3" />
+                                <span className="text-sm font-medium">{currentProvider?.name || 'Models'}</span>
+                                <ChevronDown className="h-3 w-3" />
+                              </>
+                            );
+                          })()}
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent 
@@ -1025,192 +1294,175 @@ export default function ChatClient({
                         align="start"
                         sideOffset={8}
                       >
-                        <DropdownMenuLabel className="text-base font-semibold">Main Options</DropdownMenuLabel>
+                        <DropdownMenuLabel className="text-base font-semibold">Select Model Provider</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         
-                        {/* Main Categories */}
-                        <div className="grid grid-cols-5 gap-2 p-2">
-                          <DropdownMenuItem 
-                            onClick={() => setSelectedMainOption('chat')}
-                            className="flex flex-col items-center space-y-1 p-3 h-auto cursor-pointer hover:bg-blue-50"
-                          >
-                            <MessageSquare className="h-6 w-6 text-blue-600" />
-                            <div className="text-center">
-                              <div className="text-sm font-medium">Chat</div>
-                              <div className="text-xs text-gray-500">Conversations</div>
+                        {!showModelScreen && (
+                          <div className="animate-slideIn">
+                            {/* Model Providers */}
+                            <div className="grid grid-cols-4 gap-3 p-4">
+                              {availableProviders.map((provider, index) => {
+                                const IconComponent = getProviderIcon(provider.id);
+                                const cachedModels = providerModelsCache[provider.id];
+                                const modelCount = cachedModels ? cachedModels.length : '?';
+                                
+                                return (
+                                  <div 
+                                    key={provider.id}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleProviderClick(provider.id);
+                                    }}
+                                    className="group flex flex-col items-center space-y-3 p-5 cursor-pointer rounded-2xl border border-gray-100 bg-white hover:border-blue-200 hover:shadow-lg transition-all duration-300 ease-out transform hover:scale-105 hover:-translate-y-1"
+                                    style={{
+                                      animation: `fadeInUp 0.5s ease-out ${index * 0.1}s both`
+                                    }}
+                                  >
+                                    <div className="relative">
+                                      <div className="absolute inset-0 bg-blue-100 rounded-full scale-0 group-hover:scale-100 transition-transform duration-300 ease-out"></div>
+                                      <IconComponent className="relative h-10 w-10 text-blue-600 group-hover:text-blue-700 transition-colors duration-300 group-hover:scale-110" />
+                                    </div>
+                                    <div className="text-center">
+                                      <div className="text-sm font-semibold text-gray-900 group-hover:text-blue-900 transition-colors duration-300">{provider.name}</div>
+                                      <div className="text-xs text-gray-500 mt-1 group-hover:text-gray-600 transition-colors duration-300">{getProviderDescription(provider.id)}</div>
+                                      <div className="inline-flex items-center justify-center mt-2 px-2 py-1 bg-blue-50 text-blue-600 text-xs font-medium rounded-full group-hover:bg-blue-100 transition-colors duration-300">
+                                        {modelCount} models
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
-                          </DropdownMenuItem>
-                          
-                          <DropdownMenuItem 
-                            onClick={() => setSelectedMainOption('settings')}
-                            className="flex flex-col items-center space-y-1 p-3 h-auto cursor-pointer hover:bg-green-50"
-                          >
-                            <Settings className="h-6 w-6 text-green-600" />
-                            <div className="text-center">
-                              <div className="text-sm font-medium">Settings</div>
-                              <div className="text-xs text-gray-500">Configuration</div>
-                            </div>
-                          </DropdownMenuItem>
-                          
-                          <DropdownMenuItem 
-                            onClick={() => setSelectedMainOption('data')}
-                            className="flex flex-col items-center space-y-1 p-3 h-auto cursor-pointer hover:bg-purple-50"
-                          >
-                            <Database className="h-6 w-6 text-purple-600" />
-                            <div className="text-center">
-                              <div className="text-sm font-medium">Data</div>
-                              <div className="text-xs text-gray-500">Management</div>
-                            </div>
-                          </DropdownMenuItem>
-                          
-                          <DropdownMenuItem 
-                            onClick={() => setSelectedMainOption('ai')}
-                            className="flex flex-col items-center space-y-1 p-3 h-auto cursor-pointer hover:bg-orange-50"
-                          >
-                            <Brain className="h-6 w-6 text-orange-600" />
-                            <div className="text-center">
-                              <div className="text-sm font-medium">AI Models</div>
-                              <div className="text-xs text-gray-500">Intelligence</div>
-                            </div>
-                          </DropdownMenuItem>
-                          
-                          <DropdownMenuItem 
-                            onClick={() => setSelectedMainOption('themes')}
-                            className="flex flex-col items-center space-y-1 p-3 h-auto cursor-pointer hover:bg-pink-50"
-                          >
-                            <Palette className="h-6 w-6 text-pink-600" />
-                            <div className="text-center">
-                              <div className="text-sm font-medium">Themes</div>
-                              <div className="text-xs text-gray-500">Appearance</div>
-                            </div>
-                          </DropdownMenuItem>
-                        </div>
-                        
-                        <DropdownMenuSeparator />
-                        
-                        {/* Sub-options based on selected main option */}
-                        {selectedMainOption === 'chat' && (
-                          <div className="grid grid-cols-5 gap-2 p-2">
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <MessageCircle className="h-5 w-5 text-blue-500" />
-                              <span className="text-xs">New Chat</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Save className="h-5 w-5 text-green-500" />
-                              <span className="text-xs">Save Chat</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <RefreshCw className="h-5 w-5 text-blue-500" />
-                              <span className="text-xs">Reload</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Edit2 className="h-5 w-5 text-yellow-500" />
-                              <span className="text-xs">Edit Mode</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <HelpCircle className="h-5 w-5 text-gray-500" />
-                              <span className="text-xs">Help</span>
-                            </DropdownMenuItem>
                           </div>
                         )}
                         
-                        {selectedMainOption === 'settings' && (
-                          <div className="grid grid-cols-5 gap-2 p-2">
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Cpu className="h-5 w-5 text-green-500" />
-                              <span className="text-xs">Providers</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Zap className="h-5 w-5 text-yellow-500" />
-                              <span className="text-xs">Models</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Monitor className="h-5 w-5 text-blue-500" />
-                              <span className="text-xs">Display</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Save className="h-5 w-5 text-purple-500" />
-                              <span className="text-xs">Auto-save</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Settings className="h-5 w-5 text-gray-500" />
-                              <span className="text-xs">Advanced</span>
-                            </DropdownMenuItem>
-                          </div>
-                        )}
-                        
-                        {selectedMainOption === 'data' && (
-                          <div className="grid grid-cols-5 gap-2 p-2">
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Database className="h-5 w-5 text-purple-500" />
-                              <span className="text-xs">Export</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <RefreshCw className="h-5 w-5 text-blue-500" />
-                              <span className="text-xs">Sync</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Save className="h-5 w-5 text-green-500" />
-                              <span className="text-xs">Backup</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Square className="h-5 w-5 text-red-500" />
-                              <span className="text-xs">Clear</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <HelpCircle className="h-5 w-5 text-gray-500" />
-                              <span className="text-xs">Info</span>
-                            </DropdownMenuItem>
-                          </div>
-                        )}
-                        
-                        {selectedMainOption === 'ai' && (
-                          <div className="grid grid-cols-5 gap-2 p-2">
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Brain className="h-5 w-5 text-orange-500" />
-                              <span className="text-xs">GPT</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Cpu className="h-5 w-5 text-blue-500" />
-                              <span className="text-xs">Local</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Zap className="h-5 w-5 text-yellow-500" />
-                              <span className="text-xs">Ollama</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Settings className="h-5 w-5 text-gray-500" />
-                              <span className="text-xs">Config</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <RefreshCw className="h-5 w-5 text-green-500" />
-                              <span className="text-xs">Refresh</span>
-                            </DropdownMenuItem>
-                          </div>
-                        )}
-                        
-                        {selectedMainOption === 'themes' && (
-                          <div className="grid grid-cols-5 gap-2 p-2">
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Palette className="h-5 w-5 text-pink-500" />
-                              <span className="text-xs">Light</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Palette className="h-5 w-5 text-gray-700" />
-                              <span className="text-xs">Dark</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Palette className="h-5 w-5 text-blue-500" />
-                              <span className="text-xs">Blue</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Palette className="h-5 w-5 text-green-500" />
-                              <span className="text-xs">Green</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="flex flex-col items-center space-y-1 p-3 h-auto">
-                              <Palette className="h-5 w-5 text-purple-500" />
-                              <span className="text-xs">Purple</span>
-                            </DropdownMenuItem>
+                        {showModelScreen && selectedModelProvider && (
+                          <div className="animate-slideIn">
+                            <DropdownMenuSeparator />
+                            <div className="p-6">
+                              {(() => {
+                                const providerData = availableProviders.find(p => p.id === selectedModelProvider);
+                                if (!providerData) return null;
+                                
+                                const IconComponent = getProviderIcon(selectedModelProvider);
+                                const cachedModels = providerModelsCache[selectedModelProvider] || [];
+                                const isLoading = loadingProviderModels === selectedModelProvider;
+                                
+                                return (
+                                  <div>
+                                    {/* Header */}
+                                    <div className="flex items-center justify-between mb-6">
+                                      <div className="flex items-center space-x-3">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={handleBackToProviders}
+                                          className="p-1 hover:bg-gray-100"
+                                        >
+                                          <ChevronDown className="h-4 w-4 rotate-90" />
+                                        </Button>
+                                        <div className="flex items-center space-x-2">
+                                          <IconComponent className="h-6 w-6 text-blue-600" />
+                                          <div>
+                                            <h3 className="font-semibold text-gray-900">{providerData.name}</h3>
+                                            <p className="text-xs text-gray-500">{getProviderDescription(selectedModelProvider)}</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Models List */}
+                                    <div className="space-y-4">
+                                      <h4 className="text-sm font-medium text-gray-700 mb-4">Available Models</h4>
+                                      
+                                      {/* Fixed height container to prevent layout shifts */}
+                                      <div className="h-60 overflow-y-auto">
+                                        {isLoading ? (
+                                          <div className="flex items-center justify-center h-full">
+                                            <div className="flex items-center space-x-2">
+                                              <Loader2 className="h-4 w-4 animate-spin" />
+                                              <span className="text-sm text-gray-500">Loading models...</span>
+                                            </div>
+                                          </div>
+                                        ) : cachedModels.length === 0 ? (
+                                          <div className="flex items-center justify-center h-full">
+                                            <div className="text-center">
+                                              <div className="text-sm text-gray-500">No models available</div>
+                                              <div className="text-xs text-gray-400 mt-1">
+                                                Make sure {providerData.name} is running and has models loaded
+                                              </div>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <div className="grid grid-cols-4 gap-4 p-2">
+                                          {cachedModels.map((model, index) => {
+                                            const isCurrentModel = selectedModel === model.fullId;
+                                            const IconComponent = getProviderIcon(selectedModelProvider);
+                                            return (
+                                              <div
+                                                key={model.fullId}
+                                                onClick={(e) => {
+                                                  e.preventDefault();
+                                                  e.stopPropagation();
+                                                  
+                                                  // Add selection animation to clicked model
+                                                  const target = e.currentTarget as HTMLElement;
+                                                  target.style.transition = 'all 0.2s ease-out';
+                                                  target.style.transform = 'scale(0.95)';
+                                                  
+                                                  setTimeout(() => {
+                                                    target.style.transform = 'scale(1.05)';
+                                                    handleModelSelect(model.fullId, selectedModelProvider);
+                                                  }, 100);
+                                                }}
+                                                className={`group relative flex flex-col items-center justify-center p-4 rounded-2xl cursor-pointer transition-all duration-300 ease-out aspect-square transform hover:scale-105 hover:-translate-y-1 ${
+                                                  isCurrentModel 
+                                                    ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-400 shadow-lg shadow-blue-200/50 scale-105' 
+                                                    : 'bg-white hover:bg-gray-50 hover:shadow-lg hover:shadow-gray-200/50 border border-gray-200 hover:border-blue-200'
+                                                }`}
+                                                style={{
+                                                  animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`
+                                                }}
+                                              >
+                                                <div className="relative mb-3">
+                                                  <div className={`absolute inset-0 rounded-full transition-all duration-300 ${
+                                                    isCurrentModel ? 'bg-blue-200 scale-100' : 'bg-gray-100 scale-0 group-hover:scale-100'
+                                                  }`}></div>
+                                                  <IconComponent className={`relative h-10 w-10 transition-all duration-300 group-hover:scale-110 ${
+                                                    isCurrentModel ? 'text-blue-700' : 'text-gray-600 group-hover:text-blue-600'
+                                                  }`} />
+                                                </div>
+                                                <div className="text-center">
+                                                  <div className={`text-xs font-semibold transition-colors duration-300 ${
+                                                    isCurrentModel ? 'text-blue-900' : 'text-gray-900 group-hover:text-blue-900'
+                                                  }`}>
+                                                    {model.name.length > 10 ? model.name.substring(0, 10) + '...' : model.name}
+                                                  </div>
+                                                  <div className={`text-xs mt-1 transition-colors duration-300 ${
+                                                    isCurrentModel ? 'text-blue-600' : 'text-gray-500 group-hover:text-gray-600'
+                                                  }`}>
+                                                    {model.ownedBy}
+                                                  </div>
+                                                </div>
+                                                {isCurrentModel && (
+                                                  <div className="absolute top-1 right-1">
+                                                    <div className="bg-blue-500 rounded-full p-1 shadow-lg">
+                                                      <Check className="h-3 w-3 text-white" />
+                                                    </div>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            );
+                                          })}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
                           </div>
                         )}
                       </DropdownMenuContent>
@@ -1234,16 +1486,12 @@ export default function ChatClient({
                       <span className="hidden sm:inline">Refresh</span>
                     </Button>
                     
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={refreshModels}
-                      disabled={loadingModels || isLoading}
-                      className="flex items-center space-x-1 bg-white hover:bg-gray-50 h-7 px-2 text-xs"
-                    >
-                      <RefreshCw className={`h-3 w-3 ${loadingModels ? 'animate-spin' : ''}`} />
-                      <span className="hidden sm:inline">Models</span>
-                    </Button>
+                    {selectedModel && (
+                      <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 font-medium text-xs px-2 py-1">
+                        {selectedModel}
+                      </Badge>
+                    )}
+                    
                   </div>
                 </div>
 
@@ -1265,19 +1513,6 @@ export default function ChatClient({
                   
                   {/* Action Buttons */}
                   <div className="flex items-center space-x-2 px-4 py-4">
-                    {isLoading && (
-                      <Button 
-                        type="button"
-                        onClick={handleStop}
-                        variant="outline" 
-                        size="sm"
-                        className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 h-10 px-3"
-                      >
-                        <Square className="h-4 w-4 mr-1" />
-                        <span className="hidden sm:inline">Stop</span>
-                      </Button>
-                    )}
-                    
                     <Button 
                       type="submit" 
                       disabled={!input.trim()}

@@ -83,10 +83,15 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
     setTimeout(() => setCreatingNewChat(false), 1500);
   };
 
-  const handleChatClick = (chatId: string) => {
+  const handleChatClick = (chatId: string, conversationId?: string) => {
     setNavigatingToChatId(chatId);
     setOpenMobile(false);
-    router.push(`/chat?id=${chatId}`);
+    
+    // Always include the conversation ID if available to prevent creating new chats
+    const url = conversationId 
+      ? `/chat?id=${chatId}&conversation=${conversationId}`
+      : `/chat?id=${chatId}`;
+    router.push(url);
     
     // Clear loading state after navigation
     setTimeout(() => setNavigatingToChatId(null), 1000);
@@ -189,16 +194,25 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
 
   // Listen for chat updates (via custom events)
   useEffect(() => {
-    const handleChatUpdate = () => {
+    const handleChatCreated = () => {
+      // Only refresh for new chat creation
       loadChats();
     };
+    
+    const handleChatTitleUpdated = (event: CustomEvent) => {
+      // Update title locally without full refresh
+      const { chatId, title } = event.detail;
+      setChats(prev => prev.map(chat => 
+        chat.id === chatId ? { ...chat, title } : chat
+      ));
+    };
 
-    window.addEventListener('chatCreated', handleChatUpdate);
-    window.addEventListener('chatUpdated', handleChatUpdate);
+    window.addEventListener('chatCreated', handleChatCreated);
+    window.addEventListener('chatTitleUpdated', handleChatTitleUpdated);
     
     return () => {
-      window.removeEventListener('chatCreated', handleChatUpdate);
-      window.removeEventListener('chatUpdated', handleChatUpdate);
+      window.removeEventListener('chatCreated', handleChatCreated);
+      window.removeEventListener('chatTitleUpdated', handleChatTitleUpdated);
     };
   }, []);
 
@@ -316,7 +330,7 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
                             className="flex-1"
                           >
                             <button
-                              onClick={() => isRenaming ? undefined : handleChatClick(chat.id)}
+                              onClick={() => isRenaming ? undefined : handleChatClick(chat.id, firstConversation?.id)}
                               disabled={navigatingToChatId === chat.id}
                               className="flex flex-col items-start w-full text-left px-1.5 py-1.5 hover:bg-sidebar-accent rounded-md transition-colors"
                             >

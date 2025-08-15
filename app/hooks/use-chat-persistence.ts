@@ -20,6 +20,7 @@ export function useChatPersistence({ messages, provider, model, existingChatId, 
   const lastMessageCountRef = useRef(existingConversationId ? messages.length : 0);
   const hasSavedTitleRef = useRef(!!(existingChatId && existingConversationId));
   const isInitializingRef = useRef(false); // Prevent multiple concurrent initializations
+  const initPromiseRef = useRef<Promise<{ chatId: string; conversationId: string }> | null>(null);
 
   // Set IDs immediately if we have existing ones
   useEffect(() => {
@@ -34,16 +35,14 @@ export function useChatPersistence({ messages, provider, model, existingChatId, 
   const initializeConversationIfNeeded = async () => {
     if (conversationId && chatId) return { chatId, conversationId };
     
-    // Prevent multiple concurrent initializations
-    if (isInitializingRef.current) {
-      // Wait for current initialization to complete
-      while (isInitializingRef.current) {
-        await new Promise(resolve => setTimeout(resolve, 50));
-      }
-      return { chatId, conversationId };
+    // Return existing promise if initialization is already in progress
+    if (initPromiseRef.current) {
+      return initPromiseRef.current;
     }
     
-    isInitializingRef.current = true;
+    // Create new initialization promise
+    initPromiseRef.current = (async () => {
+      isInitializingRef.current = true;
     
     try {
       let currentChatId = chatId;
@@ -79,7 +78,11 @@ export function useChatPersistence({ messages, provider, model, existingChatId, 
       return { chatId: tempChatId, conversationId: tempConversationId };
     } finally {
       isInitializingRef.current = false;
+      initPromiseRef.current = null;
     }
+    })();
+    
+    return initPromiseRef.current;
   };
 
   // Save messages when they change (simplified approach)
@@ -89,7 +92,38 @@ export function useChatPersistence({ messages, provider, model, existingChatId, 
     async function saveNewMessages() {
       if (messages.length === 0) return;
       
-      // Initialize chat and conversation if needed (when first message arrives)
+      // For existing chats, don't initialize if we already have IDs
+      if (existingChatId && existingConversationId) {
+        // Use existing IDs directly, don't create new ones
+        const currentChatId = chatId || existingChatId;
+        const currentConversationId = conversationId || existingConversationId;
+        
+        if (!currentConversationId || !currentChatId) return;
+        
+        // Continue with saving logic for existing chats
+        const currentMessageCount = messages.length;
+        const lastSavedCount = lastMessageCountRef.current;
+        
+        // Only proceed if we have new messages
+        if (currentMessageCount <= lastSavedCount) return;
+        
+        // Save all messages (database will handle duplicates via upsert logic)
+        for (let i = lastSavedCount; i < messages.length; i++) {
+          const message = messages[i];
+          
+          try {
+            await saveMessage(currentConversationId, message.role as 'user' | 'assistant', message.content);
+            console.log('Message saved:', message.role, message.content.substring(0, 50) + (message.content.length > 50 ? '...' : ''));
+          } catch (error) {
+            console.error('Failed to save message:', error);
+          }
+        }
+        
+        lastMessageCountRef.current = currentMessageCount;
+        return;
+      }
+      
+      // For new chats, initialize chat and conversation if needed (when first message arrives)
       const { chatId: currentChatId, conversationId: currentConversationId } = await initializeConversationIfNeeded();
       if (!currentConversationId || !currentChatId) return;
       
@@ -114,8 +148,8 @@ export function useChatPersistence({ messages, provider, model, existingChatId, 
         }
       }
 
-      // Update the title based on the first user message (only if no title exists)
-      if (!hasSavedTitleRef.current && messages.length >= 1 && messages[0].role === 'user') {
+      // Update the title based on the first user message (only once and only if no title exists)
+      if (!hasSavedTitleRef.current && messages.length >= 2 && messages[0].role === 'user' && messages[1].role === 'assistant') {
         try {
           // Skip temporary chats
           if (!currentChatId.startsWith('temp-')) {
@@ -128,14 +162,14 @@ export function useChatPersistence({ messages, provider, model, existingChatId, 
               const title = generateChatTitle(messages[0].content);
               await updateChatTitle(currentChatId, title);
               console.log('Auto-generated chat title:', title);
+              
+              // Only trigger UI update for title generation, not every message
+              window.dispatchEvent(new CustomEvent('chatTitleUpdated', { detail: { chatId: currentChatId, title } }));
             } else {
               console.log('Chat already has a custom title, skipping auto-generation:', existingChat.title);
             }
             
             hasSavedTitleRef.current = true;
-            
-            // Notify UI that chat was updated
-            window.dispatchEvent(new CustomEvent('chatUpdated', { detail: { chatId: currentChatId } }));
           }
         } catch (error) {
           console.error('Failed to update title:', error);

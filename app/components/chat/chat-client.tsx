@@ -8,11 +8,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Bot, User, Send, Loader2, RefreshCw, Monitor, Cpu, Zap, Square, Save, Check, MessageSquarePlus, ChevronDown, Sparkles, MessageCircle, Lightbulb, Code, HelpCircle } from 'lucide-react';
+import { Bot, User, Send, Loader2, RefreshCw, Monitor, Cpu, Zap, Square, Save, Check, ChevronDown, Sparkles, MessageCircle, Lightbulb, Code, HelpCircle } from 'lucide-react';
 import MessageRenderer from './message-renderer';
 import { useChatPersistence } from '../../hooks/use-chat-persistence';
 import type { Chat, ChatConversation } from '../../../lib/chat-actions';
-import { createNewConversationInChat } from '../../../lib/chat-actions';
 
 interface ChatClientProps {
   availableProviders: { 
@@ -56,7 +55,6 @@ export default function ChatClient({
   );
   const [availableModels, setAvailableModels] = useState<Model[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
-  const [creatingNewConversation, setCreatingNewConversation] = useState(false);
   const [loadingChat, setLoadingChat] = useState(false);
   const [showInputAnimation, setShowInputAnimation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -207,21 +205,6 @@ export default function ChatClient({
     }
   };
 
-  const handleNewConversation = async () => {
-    if (!chatId || creatingNewConversation) return;
-    
-    setCreatingNewConversation(true);
-    try {
-      const newConversationId = await createNewConversationInChat(chatId, provider, selectedModel);
-      // Navigate to the new conversation
-      window.location.href = `/chat?id=${chatId}&conversation=${newConversationId}`;
-    } catch (error) {
-      console.error('Failed to create new conversation:', error);
-    } finally {
-      setCreatingNewConversation(false);
-    }
-  };
-
   if (availableProviders.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -286,47 +269,6 @@ export default function ChatClient({
                   )}
                 </div>
               </div>
-              
-              {/* Conversation Management */}
-              {existingChat && existingChat.conversations.length > 0 && (
-                <div className="flex items-center space-x-2">
-                  <Select 
-                    value={externalConversationId || currentConversation?.id || ''} 
-                    onValueChange={(value) => {
-                      if (value) {
-                        window.location.href = `/chat?id=${chatId}&conversation=${value}`;
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="Select conversation" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {existingChat.conversations.map((conv, index) => (
-                        <SelectItem key={conv.id} value={conv.id}>
-                          <div className="flex flex-col">
-                            <span className="font-medium">Conversation {index + 1}</span>
-                            <span className="text-xs text-gray-500">
-                              {conv.provider} • {conv.messages.length} messages
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleNewConversation}
-                    disabled={creatingNewConversation}
-                    className="flex items-center space-x-1"
-                  >
-                    <MessageSquarePlus className="h-4 w-4" />
-                    <span className="hidden sm:inline">New Conversation</span>
-                  </Button>
-                </div>
-              )}
             </div>
           </div>
           <div className="flex items-center space-x-3">

@@ -99,16 +99,19 @@ export async function saveMessage(
       },
     });
 
-    // Update conversation and chat timestamps
-    const conversation = await db.conversation.update({
-      where: { id: conversationId },
-      data: { updatedAt: new Date() },
-    });
+    // Only update timestamps for completed conversation exchanges (user + assistant)
+    // This reduces the frequency of chat list reordering
+    if (role === 'assistant') {
+      const conversation = await db.conversation.update({
+        where: { id: conversationId },
+        data: { updatedAt: new Date() },
+      });
 
-    await db.chat.update({
-      where: { id: conversation.chatId },
-      data: { updatedAt: new Date() },
-    });
+      await db.chat.update({
+        where: { id: conversation.chatId },
+        data: { updatedAt: new Date() },
+      });
+    }
   } catch (error) {
     console.error('Error saving message:', error);
     // Continue without failing - chat should work even if saving fails

@@ -114,15 +114,25 @@ export function useChatPersistence({ messages, provider, model, existingChatId, 
         }
       }
 
-      // Update the title based on the first user message
+      // Update the title based on the first user message (only if no title exists)
       if (!hasSavedTitleRef.current && messages.length >= 1 && messages[0].role === 'user') {
         try {
           // Skip temporary chats
           if (!currentChatId.startsWith('temp-')) {
-            const title = generateChatTitle(messages[0].content);
-            await updateChatTitle(currentChatId, title);
+            // Check if chat already has a title before auto-generating one
+            const { getChat } = await import('../../lib/chat-actions');
+            const existingChat = await getChat(currentChatId);
+            
+            // Only generate title if chat has no title or has default title
+            if (!existingChat?.title || existingChat.title === 'Untitled Chat') {
+              const title = generateChatTitle(messages[0].content);
+              await updateChatTitle(currentChatId, title);
+              console.log('Auto-generated chat title:', title);
+            } else {
+              console.log('Chat already has a custom title, skipping auto-generation:', existingChat.title);
+            }
+            
             hasSavedTitleRef.current = true;
-            console.log('Chat title updated:', title);
             
             // Notify UI that chat was updated
             window.dispatchEvent(new CustomEvent('chatUpdated', { detail: { chatId: currentChatId } }));

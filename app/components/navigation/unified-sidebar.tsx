@@ -62,6 +62,7 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
   const [updatingChats, setUpdatingChats] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState<string>('');
+  const [savingRename, setSavingRename] = useState<boolean>(false);
   const pathname = usePathname();
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
@@ -111,20 +112,28 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
   };
 
   const handleStartRename = (chatId: string, currentTitle: string) => {
+    console.log('Starting rename for chat:', chatId, 'with title:', currentTitle);
+    console.log('Is temp chat?', chatId.startsWith('temp-'));
+    console.log('Current renamingId before:', renamingId);
     setRenamingId(chatId);
     setNewTitle(currentTitle || 'Untitled Chat');
+    console.log('Set renamingId to:', chatId);
   };
 
   const handleCancelRename = () => {
     setRenamingId(null);
     setNewTitle('');
+    setSavingRename(false);
   };
 
   const handleSaveRename = async (chatId: string) => {
-    if (!newTitle.trim() || !renamingId) return;
+    if (!newTitle.trim() || !renamingId || renamingId !== chatId || savingRename) return;
     
+    setSavingRename(true);
     try {
+      console.log('UI: Starting rename save:', chatId, newTitle.trim());
       await updateChatTitle(chatId, newTitle.trim());
+      console.log('UI: Database update completed');
       
       // Update local state
       setChats(prev => prev.map(chat => 
@@ -133,8 +142,13 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
       
       setRenamingId(null);
       setNewTitle('');
+      console.log('UI: Rename successful, local state updated');
     } catch (error) {
-      console.error('Failed to rename chat:', error);
+      console.error('UI: Failed to rename chat:', error);
+      // Keep the input open on error so user can try again
+      alert('Failed to rename chat. Please try again.');
+    } finally {
+      setSavingRename(false);
     }
   };
 
@@ -291,39 +305,51 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
                   <SidebarMenu className="px-2">
                     {chats.map((chat) => {
                     const firstConversation = chat.conversations[0];
+                    const isRenaming = renamingId === chat.id;
+                    console.log(`Chat ${chat.id} - isRenaming: ${isRenaming}, renamingId: ${renamingId}`);
                     return (
                       <SidebarMenuItem key={chat.id}>
-                        <div className="flex items-start w-full group relative">
+                        <div className="flex items-start w-full group/item relative">
                           <SidebarMenuButton
                             asChild
                             isActive={currentChatId === chat.id}
                             className="flex-1"
                           >
                             <button
-                              onClick={() => handleChatClick(chat.id)}
-                              disabled={navigatingToChatId === chat.id || renamingId === chat.id}
+                              onClick={() => isRenaming ? undefined : handleChatClick(chat.id)}
+                              disabled={navigatingToChatId === chat.id}
                               className="flex flex-col items-start w-full text-left px-1.5 py-1.5 hover:bg-sidebar-accent rounded-md transition-colors"
                             >
                               <div className="flex items-center justify-between w-full">
-                                {renamingId === chat.id ? (
-                                  <Input
-                                    value={newTitle}
-                                    onChange={(e) => setNewTitle(e.target.value)}
-                                    onKeyDown={(e) => handleKeyDown(e, chat.id)}
-                                    onBlur={() => handleSaveRename(chat.id)}
-                                    className="h-6 px-1 py-0 text-sm font-medium bg-transparent border-none focus:ring-1 focus:ring-blue-500"
-                                    autoFocus
-                                  />
+                                {isRenaming ? (
+                                  <div className="flex items-center w-full">
+                                    <Input
+                                      value={newTitle}
+                                      onChange={(e) => setNewTitle(e.target.value)}
+                                      onKeyDown={(e) => handleKeyDown(e, chat.id)}
+                                      onBlur={(e) => {
+                                        // Prevent blur from parent button click
+                                        if (!e.relatedTarget || !e.currentTarget.contains(e.relatedTarget as Node)) {
+                                          handleSaveRename(chat.id);
+                                        }
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                      disabled={savingRename}
+                                      className="h-6 px-1 py-0 text-sm font-medium bg-transparent border-none focus:ring-1 focus:ring-blue-500 flex-1"
+                                      autoFocus
+                                    />
+                                    {savingRename && (
+                                      <div className="ml-2 animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
+                                    )}
+                                  </div>
                                 ) : (
                                   <span className="truncate font-medium flex-1 mr-2">
+                                    {console.log('Displaying title for chat:', chat.id, 'title:', chat.title)}
                                     {chat.title || 'Untitled Chat'}
                                   </span>
                                 )}
-                                {navigatingToChatId === chat.id && (
-                                  <div className="flex-shrink-0 animate-spin rounded-full h-3 w-3 border-b-2 border-sidebar-foreground opacity-60"></div>
-                                )}
                               </div>
-                              {!renamingId && firstConversation && (
+                              {!isRenaming && firstConversation && (
                                 <div className="flex items-center space-x-2 text-xs text-sidebar-foreground/60 mt-0.5">
                                   <span>{firstConversation.provider}</span>
                                   {firstConversation.model && (
@@ -338,7 +364,7 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
                                   <span>{chat.conversations.length} conversation{chat.conversations.length !== 1 ? 's' : ''}</span>
                                 </div>
                               )}
-                              {!renamingId && (
+                              {!isRenaming && (
                                 <div className="flex items-center space-x-1 text-xs text-sidebar-foreground/60 mt-0.5">
                                   <Clock className="h-3 w-3" />
                                   <span>
@@ -356,7 +382,7 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-6 w-6 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-100/50"
+                                  className="h-6 w-6 p-0 flex-shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity duration-200 hover:bg-gray-100/50"
                                 >
                                   <MoreHorizontal className="h-4 w-4" />
                                 </Button>
@@ -372,7 +398,7 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
                                 >
                               <DropdownMenuItem
                                 onClick={() => handleStartRename(chat.id, chat.title || 'Untitled Chat')}
-                                disabled={renamingId !== null}
+                                disabled={renamingId === chat.id}
                               >
                                 <Edit2 className="mr-2 h-4 w-4" />
                                 Rename

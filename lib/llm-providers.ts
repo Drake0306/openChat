@@ -62,7 +62,8 @@ interface OllamaModel {
 
 // Get available models from LM Studio
 export async function getLMStudioModels(): Promise<LMStudioModel[]> {
-    const baseUrl = process.env.LOCAL_LLM_ENDPOINT?.replace('/chat/completions', '') || 'http://localhost:1234/v1';
+    const port = process.env.LM_STUDIO_PORT || '1234';
+    const baseUrl = process.env.LOCAL_LLM_ENDPOINT?.replace('/chat/completions', '') || `http://localhost:${port}/v1`;
     
     try {
         const response = await fetch(`${baseUrl}/models`, {
@@ -86,7 +87,8 @@ export async function getLMStudioModels(): Promise<LMStudioModel[]> {
 
 // Get available models from Ollama
 export async function getOllamaModels(): Promise<OllamaModel[]> {
-    const baseUrl = process.env.OLLAMA_ENDPOINT || 'http://localhost:11434';
+    const port = process.env.OLLAMA_PORT || '11434';
+    const baseUrl = process.env.OLLAMA_ENDPOINT || `http://localhost:${port}`;
     
     try {
         const response = await fetch(`${baseUrl}/api/tags`, {
@@ -143,7 +145,8 @@ export async function callAnthropic(messages: any[]) {
 
 // LM Studio Local LLM Service
 export async function callLocalLLM(messages: any[], selectedModel?: string) {
-    const baseUrl = process.env.LOCAL_LLM_ENDPOINT?.replace('/chat/completions', '') || 'http://localhost:1234/v1';
+    const port = process.env.LM_STUDIO_PORT || '1234';
+    const baseUrl = process.env.LOCAL_LLM_ENDPOINT?.replace('/chat/completions', '') || `http://localhost:${port}/v1`;
     
     try {
         // Create OpenAI client configured for LM Studio
@@ -206,7 +209,8 @@ export async function callLocalLLM(messages: any[], selectedModel?: string) {
 
 // Ollama Local LLM Service
 export async function callOllama(messages: any[], selectedModel?: string) {
-    const baseUrl = process.env.OLLAMA_ENDPOINT || 'http://localhost:11434';
+    const port = process.env.OLLAMA_PORT || '11434';
+    const baseUrl = process.env.OLLAMA_ENDPOINT || `http://localhost:${port}`;
     
     try {
         // Get available models if no model is selected

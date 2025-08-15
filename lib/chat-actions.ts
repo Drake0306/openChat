@@ -246,7 +246,7 @@ export async function getUserChats(): Promise<Chat[]> {
       take: 50, // Limit to recent chats
     });
 
-    return chats.map(chat => ({
+    const mappedChats = chats.map(chat => ({
       id: chat.id,
       title: chat.title,
       createdAt: chat.createdAt,
@@ -266,6 +266,13 @@ export async function getUserChats(): Promise<Chat[]> {
       })),
       currentConversationId: chat.conversations[0]?.id,
     }));
+    
+    console.log('getUserChats returning data:', mappedChats.map(chat => ({ 
+      id: chat.id, 
+      title: chat.title,
+      updatedAt: chat.updatedAt 
+    })));
+    return mappedChats;
   } catch (error) {
     console.error('Error getting user chats:', error);
     return [];
@@ -281,18 +288,43 @@ export async function updateChatTitle(chatId: string, title: string): Promise<vo
 
   try {
     if (chatId.startsWith('temp-')) {
+      console.log('Skipping temp chat update:', chatId);
       return;
     }
 
-    await db.chat.update({
+    console.log('Updating chat title in database:', { chatId, title, userId: session.user.id });
+    
+    // First, let's check if the chat exists
+    const existingChat = await db.chat.findFirst({
+      where: {
+        id: chatId,
+        userId: session.user.id,
+      },
+    });
+    
+    console.log('Existing chat found:', existingChat);
+    
+    if (!existingChat) {
+      console.error('Chat not found for update:', { chatId, userId: session.user.id });
+      throw new Error('Chat not found');
+    }
+    
+    const updatedChat = await db.chat.update({
       where: {
         id: chatId,
         userId: session.user.id,
       },
       data: { title },
     });
+    
+    console.log('Successfully updated chat title:', { 
+      oldTitle: existingChat.title, 
+      newTitle: updatedChat.title,
+      chatId: updatedChat.id 
+    });
   } catch (error) {
     console.error('Error updating chat title:', error);
+    throw error; // Re-throw the error so the UI can handle it
   }
 }
 

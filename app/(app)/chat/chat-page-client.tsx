@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import ChatClient from '../../components/chat/chat-client';
+import { useState, lazy, Suspense } from 'react';
 import ChatLayout from '../../components/layout/chat-layout';
+import { ChatLoadingSkeleton } from '../../components/ui/loading-skeletons';
 import type { Chat } from '../../../lib/chat-actions';
+
+const ChatClient = lazy(() => import('../../components/chat/chat-client'));
 
 interface ChatPageClientProps {
   availableProviders: { 
@@ -44,14 +46,17 @@ export default function ChatPageClient({
       currentModel={currentModel}
       currentProvider={currentProvider}
     >
-      <ChatClient 
-        availableProviders={availableProviders}
-        user={user}
-        existingChat={existingChat}
-        chatId={chatId}
-        conversationId={conversationId}
-        onModelChange={handleModelChange}
-      />
+      <Suspense fallback={<ChatLoadingSkeleton />}>
+        <ChatClient 
+          key={isNewChat ? 'new-chat' : `${chatId}-${conversationId}`}
+          availableProviders={availableProviders}
+          user={user}
+          existingChat={isNewChat ? null : existingChat}
+          chatId={isNewChat ? undefined : chatId}
+          conversationId={isNewChat ? undefined : conversationId}
+          onModelChange={handleModelChange}
+        />
+      </Suspense>
     </ChatLayout>
   );
 }

@@ -356,6 +356,17 @@ export default function ChatClient({
   useEffect(() => {
     setLoadingChat(true);
     
+    // If both external IDs are undefined, this is a new chat - clear everything
+    if (!externalChatId && !externalConversationId) {
+      setMessages([]);
+      // Reset to default provider and model for new chats
+      setProvider(availableProviders[0]?.id || 'local-llm');
+      setSelectedModel(undefined);
+      setTimeout(() => setLoadingChat(false), 200);
+      return;
+    }
+    
+    // For existing chats, load conversation messages and settings
     const newMessages = currentConversation?.messages.map(msg => ({
       id: msg.id,
       role: msg.role,
@@ -375,7 +386,7 @@ export default function ChatClient({
     
     // Clear loading state after a brief delay to allow UI to update
     setTimeout(() => setLoadingChat(false), 200);
-  }, [externalChatId, externalConversationId, currentConversation, setMessages]);
+  }, [externalChatId, externalConversationId, currentConversation, setMessages, availableProviders]);
 
   // Chat persistence hook - use external IDs if provided
   const { chatId, conversationId, isInitialized } = useChatPersistence({

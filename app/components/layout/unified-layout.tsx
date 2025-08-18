@@ -1,5 +1,6 @@
 'use client';
 
+import { lazy, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import {
@@ -8,7 +9,9 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Badge } from '@/components/ui/badge';
-import UnifiedSidebar from '../navigation/unified-sidebar';
+import { SidebarSkeleton } from '../ui/loading-skeletons';
+
+const UnifiedSidebar = lazy(() => import('../navigation/unified-sidebar'));
 
 interface UnifiedLayoutProps {
   children: React.ReactNode;
@@ -35,7 +38,9 @@ export default function UnifiedLayout({ children, currentChatId, currentModel, c
   return (
     <div className="h-screen overflow-hidden">
       <SidebarProvider>
-        <UnifiedSidebar user={session.user} currentChatId={currentChatId} />
+        <Suspense fallback={<SidebarSkeleton />}>
+          <UnifiedSidebar user={session.user} currentChatId={currentChatId} />
+        </Suspense>
         <SidebarInset className="flex flex-col h-full">
           <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
             <div className="flex items-center gap-2 px-4">

@@ -40,7 +40,8 @@ import {
   Clock,
   Crown,
   MoreHorizontal,
-  Edit2
+  Edit2,
+  Settings
 } from 'lucide-react';
 import { getUserChats, deleteChat, updateChatTitle, type Chat } from '../../../lib/chat-actions';
 
@@ -67,6 +68,19 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
 
+  // Helper function to determine if chat section should be active
+  const isChatActive = () => {
+    // Always active for chat paths
+    if (pathname === '/chat' || pathname.startsWith('/chat')) {
+      return true;
+    }
+    // Also active for root path (before redirect) and any path that's not explicitly another section
+    if (pathname === '/' || (!pathname.startsWith('/subscribe') && !pathname.startsWith('/signin') && !pathname.startsWith('/auth') && !pathname.startsWith('/settings'))) {
+      return true;
+    }
+    return false;
+  };
+
   const handleSignOut = () => {
     signOut({ callbackUrl: '/signin' });
   };
@@ -77,7 +91,14 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
     
     // Add timestamp to force fresh route and clear any cached state
     const timestamp = Date.now();
-    router.push(`/chat?new=${timestamp}`);
+    const newChatUrl = `/chat?new=${timestamp}`;
+    
+    // Use replace if already on a new chat page to force refresh, otherwise use push
+    if (pathname === '/chat' && window.location.search.includes('new=')) {
+      router.replace(newChatUrl);
+    } else {
+      router.push(newChatUrl);
+    }
     
     // Clear loading state after navigation
     setTimeout(() => setCreatingNewChat(false), 1500);
@@ -277,7 +298,7 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
-                  isActive={pathname === '/chat' || pathname.startsWith('/chat')}
+                  isActive={isChatActive()}
                 >
                   <Link href="/chat" onClick={() => setOpenMobile(false)}>
                     <MessageSquare className="h-4 w-4" />
@@ -293,6 +314,17 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
                   <Link href="/subscribe" onClick={() => setOpenMobile(false)}>
                     <CreditCard className="h-4 w-4" />
                     Subscription
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === '/settings' || pathname.startsWith('/settings')}
+                >
+                  <Link href="/settings" onClick={() => setOpenMobile(false)}>
+                    <Settings className="h-4 w-4" />
+                    Settings
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -448,37 +480,46 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
       </SidebarContent>
 
       <SidebarFooter>
-        {/* User Info */}
-        <div className="flex items-center gap-3 p-2 rounded-lg bg-sidebar-accent/50 mb-2">
-          <div className="flex-shrink-0">
-            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-              <User className="w-4 h-4 text-white" />
+        {/* User Info - Clickable to Settings */}
+        <Link 
+          href="/settings" 
+          onClick={() => setOpenMobile(false)}
+          className="block mb-2 group"
+        >
+          <div className="flex items-center gap-3 p-2 rounded-lg bg-sidebar-accent/50 hover:bg-sidebar-accent transition-colors cursor-pointer">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                <User className="w-4 h-4 text-white" />
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-sidebar-foreground truncate">
+                {user.name || 'User'}
+              </p>
+              <p className="text-xs text-sidebar-foreground/70 truncate">
+                {user.email}
+              </p>
+              <div className="flex items-center mt-1">
+                <Badge
+                  variant={user.plan === 'PRO' ? 'default' : 'secondary'}
+                  className={`text-xs ${
+                    user.plan === 'PRO' 
+                      ? 'bg-purple-100 text-purple-800 border-purple-200' 
+                      : user.plan === 'BASIC'
+                      ? 'bg-blue-100 text-blue-800 border-blue-200'
+                      : 'bg-gray-100 text-gray-800 border-gray-200'
+                  }`}
+                >
+                  {user.plan === 'PRO' && <Crown className="h-3 w-3 mr-1" />}
+                  {user.plan || 'FREE'}
+                </Badge>
+              </div>
+            </div>
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+              <Settings className="h-4 w-4 text-sidebar-foreground/70" />
             </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">
-              {user.name || 'User'}
-            </p>
-            <p className="text-xs text-sidebar-foreground/70 truncate">
-              {user.email}
-            </p>
-            <div className="flex items-center mt-1">
-              <Badge
-                variant={user.plan === 'PRO' ? 'default' : 'secondary'}
-                className={`text-xs ${
-                  user.plan === 'PRO' 
-                    ? 'bg-purple-100 text-purple-800 border-purple-200' 
-                    : user.plan === 'BASIC'
-                    ? 'bg-blue-100 text-blue-800 border-blue-200'
-                    : 'bg-gray-100 text-gray-800 border-gray-200'
-                }`}
-              >
-                {user.plan === 'PRO' && <Crown className="h-3 w-3 mr-1" />}
-                {user.plan || 'FREE'}
-              </Badge>
-            </div>
-          </div>
-        </div>
+        </Link>
         
         <SidebarMenu>
           <SidebarMenuItem>

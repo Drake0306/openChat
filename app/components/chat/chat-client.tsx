@@ -203,6 +203,7 @@ export default function ChatClient({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputContainerRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Add CSS animations to head
   useEffect(() => {
@@ -500,6 +501,23 @@ export default function ChatClient({
       setSelectedModel(undefined);
     }
   }, [provider, availableProviders]);
+
+  // Auto-focus textarea on component mount
+  useEffect(() => {
+    const focusTextarea = () => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    };
+    
+    // Focus immediately
+    focusTextarea();
+    
+    // Also focus after a short delay to handle any loading states
+    const timeoutId = setTimeout(focusTextarea, 100);
+    
+    return () => clearTimeout(timeoutId);
+  }, []);
 
   const fetchAvailableModels = async (providerType: string) => {
     if (!providerType) return;
@@ -1022,6 +1040,7 @@ export default function ChatClient({
                         </div>
 
                         <Textarea
+                          ref={textareaRef}
                           value={input}
                           onChange={handleInputChange}
                           onKeyDown={handleKeyDown}

@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   ArrowLeft, 
   User, 
@@ -19,14 +21,21 @@ import {
   Mail,
   Settings as SettingsIcon,
   Trash2,
-  Sun
+  Sun,
+  Save,
+  AlertTriangle,
+  Camera,
+  Upload,
+  X
 } from 'lucide-react';
 
 interface SettingsPageClientProps {
   user: {
     name?: string | null;
     email?: string | null;
+    image?: string | null;
     plan?: string;
+    hasGoogleAccount?: boolean;
   };
 }
 
@@ -35,6 +44,11 @@ export default function SettingsPageClient({ user }: SettingsPageClientProps) {
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [sliderStyle, setSliderStyle] = useState({ left: 0, width: 0 });
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [currentUser, setCurrentUser] = useState(user);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarUploadMessage, setAvatarUploadMessage] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   const tabs = [
     { id: 'account', label: 'Account', icon: User },
@@ -68,10 +82,114 @@ export default function SettingsPageClient({ user }: SettingsPageClientProps) {
     }
   }, [activeTabIndex]);
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setShowUploadModal(true);
+    setIsUploadingAvatar(true);
+    setUploadProgress(0);
+    setAvatarUploadMessage('');
+
+    // Simulate upload progress
+    const progressInterval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return 90;
+        }
+        return prev + Math.random() * 20;
+      });
+    }, 200);
+
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const response = await fetch('/api/user/avatar', {
+        method: 'POST',
+        body: formData,
+      });
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      if (response.ok) {
+        const result = await response.json();
+        setCurrentUser(result.user);
+        setAvatarUploadMessage('Profile picture updated successfully');
+        
+        // Close modal after 1 second
+        setTimeout(() => {
+          setShowUploadModal(false);
+          setAvatarUploadMessage('');
+          setUploadProgress(0);
+        }, 1000);
+      } else {
+        const error = await response.json();
+        setAvatarUploadMessage(error.error || 'Failed to upload profile picture');
+        
+        // Close modal after 3 seconds on error
+        setTimeout(() => {
+          setShowUploadModal(false);
+          setAvatarUploadMessage('');
+          setUploadProgress(0);
+        }, 3000);
+      }
+    } catch (error) {
+      clearInterval(progressInterval);
+      setAvatarUploadMessage('An error occurred while uploading');
+      
+      // Close modal after 3 seconds on error
+      setTimeout(() => {
+        setShowUploadModal(false);
+        setAvatarUploadMessage('');
+        setUploadProgress(0);
+      }, 3000);
+    } finally {
+      setIsUploadingAvatar(false);
+      // Clear the file input
+      event.target.value = '';
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setIsUploadingAvatar(true);
+    setAvatarUploadMessage('');
+
+    try {
+      const response = await fetch('/api/user/avatar', {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setCurrentUser(result.user);
+        setAvatarUploadMessage('Profile picture removed successfully');
+        
+        // Clear the message after 2 seconds
+        setTimeout(() => setAvatarUploadMessage(''), 2000);
+      } else {
+        const error = await response.json();
+        setAvatarUploadMessage(error.error || 'Failed to remove profile picture');
+        
+        // Clear error message after 3 seconds
+        setTimeout(() => setAvatarUploadMessage(''), 3000);
+      }
+    } catch (error) {
+      setAvatarUploadMessage('An error occurred while removing profile picture');
+      
+      // Clear error message after 3 seconds
+      setTimeout(() => setAvatarUploadMessage(''), 3000);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'account':
-        return <AccountTab user={user} />;
+        return <AccountTab user={currentUser} onUserUpdate={setCurrentUser} />;
       case 'customization':
         return <CustomizationTab />;
       case 'history':
@@ -85,7 +203,7 @@ export default function SettingsPageClient({ user }: SettingsPageClientProps) {
       case 'contact':
         return <ContactTab />;
       default:
-        return <AccountTab user={user} />;
+        return <AccountTab user={currentUser} onUserUpdate={setCurrentUser} />;
     }
   };
 
@@ -128,23 +246,84 @@ export default function SettingsPageClient({ user }: SettingsPageClientProps) {
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
             {/* User Profile Section */}
             <div className="flex flex-col items-center mb-8">
-              <div className="w-24 h-24 bg-blue-500 rounded-full flex items-center justify-center mb-4">
-                <User className="w-12 h-12 text-white" />
+              {/* Profile Picture with Upload */}
+              <div className="relative group mb-6">
+                <div className="w-32 h-32 rounded-full overflow-hidden bg-blue-500 flex items-center justify-center shadow-lg">
+                  {currentUser.image ? (
+                    <img 
+                      src={currentUser.image} 
+                      alt="Profile" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-16 h-16 text-white" />
+                  )}
+                </div>
+                
+                {/* Upload/Edit Overlay */}
+                <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                  <label htmlFor="avatar-upload" className="cursor-pointer">
+                    <Camera className="w-8 h-8 text-white" />
+                  </label>
+                  <input
+                    id="avatar-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                    disabled={isUploadingAvatar}
+                  />
+                </div>
+
+                {/* Loading Spinner */}
+                {isUploadingAvatar && (
+                  <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
+                    <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
               </div>
-              <h2 className="text-xl font-bold text-gray-900">{user.name || 'User'}</h2>
-              <p className="text-sm text-gray-600 mb-2">{user.email}</p>
+
+              {/* Profile Picture Actions */}
+              {currentUser.image && (
+                <div className="mb-3">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleRemoveAvatar}
+                    disabled={isUploadingAvatar}
+                    className="text-xs text-red-600 hover:text-red-700"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    {isUploadingAvatar ? 'Removing...' : 'Remove Photo'}
+                  </Button>
+                </div>
+              )}
+
+              {/* Avatar Action Message */}
+              {avatarUploadMessage && !showUploadModal && (
+                <div className={`text-xs mb-3 px-3 py-1 rounded-full ${
+                  avatarUploadMessage.includes('success') 
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700'
+                }`}>
+                  {avatarUploadMessage}
+                </div>
+              )}
+
+              <h2 className="text-xl font-bold text-gray-900">{currentUser.name || 'User'}</h2>
+              <p className="text-sm text-gray-600 mb-2">{currentUser.email}</p>
               <Badge
-                variant={user.plan === 'PRO' ? 'default' : 'secondary'}
+                variant={currentUser.plan === 'PRO' ? 'default' : 'secondary'}
                 className={`text-xs ${
-                  user.plan === 'PRO' 
+                  currentUser.plan === 'PRO' 
                     ? 'bg-blue-100 text-blue-800 border-blue-200' 
-                    : user.plan === 'BASIC'
+                    : currentUser.plan === 'BASIC'
                     ? 'bg-blue-100 text-blue-800 border-blue-200'
                     : 'bg-gray-100 text-gray-800 border-gray-200'
                 }`}
               >
-                {user.plan === 'PRO' && <Crown className="h-3 w-3 mr-1" />}
-                {user.plan || 'Free Plan'}
+                {currentUser.plan === 'PRO' && <Crown className="h-3 w-3 mr-1" />}
+                {currentUser.plan || 'Free Plan'}
               </Badge>
             </div>
 
@@ -253,80 +432,381 @@ export default function SettingsPageClient({ user }: SettingsPageClientProps) {
           </div>
         </div>
       </div>
+
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <div className="text-center">
+              <div className="mb-4">
+                <Upload className="h-12 w-12 text-blue-600 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {uploadProgress === 100 ? 'Upload Complete!' : 'Uploading Profile Picture'}
+                </h3>
+                {avatarUploadMessage && (
+                  <p className={`text-sm mt-2 ${
+                    avatarUploadMessage.includes('success') 
+                      ? 'text-green-600' 
+                      : 'text-red-600'
+                  }`}>
+                    {avatarUploadMessage}
+                  </p>
+                )}
+              </div>
+              
+              {/* Progress Bar */}
+              <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
+                <div 
+                  className={`h-3 rounded-full transition-all duration-300 ${
+                    uploadProgress === 100 ? 'bg-green-500' : 'bg-blue-600'
+                  }`}
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
+              
+              {/* Progress Text */}
+              <p className="text-sm text-gray-600">
+                {uploadProgress === 100 ? 'Success!' : `${Math.round(uploadProgress)}% complete`}
+              </p>
+              
+              {/* Success Icon */}
+              {uploadProgress === 100 && avatarUploadMessage.includes('success') && (
+                <div className="mt-4">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                    <span className="text-green-600 text-xl">✓</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function AccountTab({ user }: { user: { name?: string | null; email?: string | null; plan?: string } }) {
+function AccountTab({ user, onUserUpdate }: { 
+  user: { name?: string | null; email?: string | null; image?: string | null; plan?: string; hasGoogleAccount?: boolean };
+  onUserUpdate: (user: any) => void;
+}) {
+  const [profileForm, setProfileForm] = useState({
+    name: user.name || '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
+  // Update form when user changes
+  useEffect(() => {
+    setProfileForm(prev => ({
+      ...prev,
+      name: user.name || ''
+    }));
+  }, [user.name]);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleProfileUpdate = async () => {
+    if (profileForm.newPassword && profileForm.newPassword !== profileForm.confirmPassword) {
+      setUpdateMessage('Passwords do not match');
+      return;
+    }
+
+    if (profileForm.newPassword && profileForm.newPassword.length < 6) {
+      setUpdateMessage('Password must be at least 6 characters long');
+      return;
+    }
+
+    setIsUpdating(true);
+    setUpdateMessage('');
+
+    try {
+      const response = await fetch('/api/user', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: profileForm.name,
+          currentPassword: profileForm.currentPassword,
+          newPassword: profileForm.newPassword || undefined,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        onUserUpdate(result.user);
+        setUpdateMessage('Profile updated successfully');
+        setProfileForm(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
+      } else {
+        const error = await response.json();
+        setUpdateMessage(error.error || 'Failed to update profile');
+      }
+    } catch (error) {
+      setUpdateMessage('An error occurred while updating profile');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    
+    try {
+      const response = await fetch('/api/user', {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        await signOut({ callbackUrl: '/signin' });
+      } else {
+        const error = await response.json();
+        setUpdateMessage(error.error || 'Failed to delete account');
+      }
+    } catch (error) {
+      setUpdateMessage('An error occurred while deleting account');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
   return (
     <div className="w-full">
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Upgrade to Pro Card */}
-        <Card className="xl:col-span-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        {/* Profile Settings */}
+        <Card className="xl:col-span-2">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-2xl font-bold text-gray-900">Upgrade to Pro</CardTitle>
-              <div className="text-right">
-                <span className="text-3xl font-bold text-blue-600">$8</span>
-                <span className="text-gray-600">/month</span>
+            <CardTitle className="text-xl font-bold text-gray-900">Profile Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Basic Information Section */}
+            <div className="bg-gray-50 rounded-lg p-6 space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <User className="h-5 w-5 text-gray-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name" className="text-sm font-medium text-gray-700">Display Name</Label>
+                  <Input
+                    id="name"
+                    value={profileForm.name}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Enter your display name"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email Address</Label>
+                  <Input
+                    id="email"
+                    value={user.email || ''}
+                    disabled
+                    className="mt-1 bg-white border-gray-200"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                </div>
               </div>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Zap className="h-4 w-4 text-blue-600" />
+
+            {/* Password Section for Non-Google Users */}
+            {!user.hasGoogleAccount && (
+              <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Key className="h-5 w-5 text-gray-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Security</h3>
                 </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900">Access to All Models</h4>
-                  <p className="text-sm text-gray-600">Get access to our full suite of models including Claude, G3-mini-high, and more!</p>
+                
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="currentPassword" className="text-sm font-medium text-gray-700">Current Password</Label>
+                    <Input
+                      id="currentPassword"
+                      type="password"
+                      value={profileForm.currentPassword}
+                      onChange={(e) => setProfileForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                      placeholder="Enter current password"
+                      className="mt-1"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="newPassword" className="text-sm font-medium text-gray-700">New Password</Label>
+                      <Input
+                        id="newPassword"
+                        type="password"
+                        value={profileForm.newPassword}
+                        onChange={(e) => setProfileForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                        placeholder="Enter new password"
+                        className="mt-1"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">Confirm New Password</Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={profileForm.confirmPassword}
+                        onChange={(e) => setProfileForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                        placeholder="Confirm new password"
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <Crown className="h-4 w-4 text-indigo-600" />
+            )}
+
+            {/* Google Account Info for Google Users */}
+            {user.hasGoogleAccount && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Key className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-blue-900">Google Account</h3>
+                    <p className="text-sm text-blue-700">
+                      You're signed in with Google. Your password is managed through your Google account.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900">Generous Limits</h4>
-                  <p className="text-sm text-gray-600">
-                    Receive <span className="font-semibold">1500 standard</span> credits per month, plus <span className="font-semibold">100 premium credits</span>* per month.
+                <div className="bg-blue-100 rounded-md p-3">
+                  <p className="text-xs text-blue-800">
+                    To change your password, visit your Google Account settings at accounts.google.com
                   </p>
                 </div>
               </div>
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
-                  <MessageSquare className="h-4 w-4 text-slate-600" />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900">Priority Support</h4>
-                  <p className="text-sm text-gray-600">Get faster responses and dedicated assistance from the T3 team whenever you need help!</p>
+            )}
+
+            {/* Status Messages */}
+            {updateMessage && (
+              <div className={`p-4 rounded-lg text-sm font-medium ${
+                updateMessage.includes('success') 
+                  ? 'bg-green-50 text-green-800 border border-green-200'
+                  : 'bg-red-50 text-red-800 border border-red-200'
+              }`}>
+                <div className="flex items-center gap-2">
+                  {updateMessage.includes('success') ? (
+                    <div className="w-4 h-4 bg-green-100 rounded-full flex items-center justify-center">
+                      <span className="text-green-600 text-xs">✓</span>
+                    </div>
+                  ) : (
+                    <AlertTriangle className="h-4 w-4 text-red-600" />
+                  )}
+                  {updateMessage}
                 </div>
               </div>
+            )}
+
+            {/* Save Button */}
+            <div className="pt-4 border-t border-gray-200">
+              <Button 
+                onClick={handleProfileUpdate} 
+                disabled={isUpdating}
+                className="w-full h-12 text-base font-medium"
+              >
+                <Save className="h-5 w-5 mr-2" />
+                {isUpdating ? 'Updating Profile...' : 'Save Changes'}
+              </Button>
             </div>
-            <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-              Upgrade Now
-            </Button>
-            <p className="text-xs text-gray-500 mt-4">
-              * Premium credits are used for GPT Image Gen, o3, Claude Sonnet, Gemini 2.5 Pro, GPT 5 (Reasoning), and Grok 3/4. 
-              Additional Premium credits can be purchased separately for $8 per 100.
-            </p>
           </CardContent>
         </Card>
 
-        {/* Danger Zone */}
-        <Card className="border-red-200 bg-red-50">
-          <CardHeader>
-            <CardTitle className="text-lg font-bold text-red-700">Danger Zone</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-red-600 mb-4">Permanently delete your account and all associated data.</p>
-            <Button variant="destructive" className="w-full">
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Account
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Upgrade to Pro Card */}
+        <div className="space-y-6">
+          <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-bold text-gray-900">Upgrade to Pro</CardTitle>
+                <div className="text-right">
+                  <span className="text-2xl font-bold text-blue-600">$8</span>
+                  <span className="text-gray-600 text-sm">/month</span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 mb-4">
+                <div className="flex items-start gap-2">
+                  <Zap className="h-4 w-4 text-blue-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">All Models</p>
+                    <p className="text-xs text-gray-600">Claude, GPT, and more</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Crown className="h-4 w-4 text-indigo-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Generous Limits</p>
+                    <p className="text-xs text-gray-600">1500 standard + 100 premium credits</p>
+                  </div>
+                </div>
+              </div>
+              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" size="sm">
+                Upgrade Now
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Danger Zone */}
+          <Card className="border-red-200 bg-red-50">
+            <CardHeader>
+              <CardTitle className="text-lg font-bold text-red-700 flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                Danger Zone
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-red-600 mb-4">
+                Permanently delete your account and all associated data. This action cannot be undone.
+              </p>
+              
+              {!showDeleteConfirm ? (
+                <Button 
+                  variant="destructive" 
+                  className="w-full"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Account
+                </Button>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-red-800">
+                    Are you absolutely sure? This will permanently delete your account.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={handleDeleteAccount}
+                      disabled={isDeleting}
+                      className="flex-1"
+                    >
+                      {isDeleting ? 'Deleting...' : 'Yes, Delete'}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

@@ -67,6 +67,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user && token) {
         session.user.id = token.sub as string;
         session.user.plan = token.plan as string;
+        session.user.image = token.image as string;
       }
       return session;
     },
@@ -74,6 +75,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.plan = user.plan;
         token.sub = user.id;
+        token.image = user.image;
+      }
+      
+      // Always fetch fresh user data to get latest image and other updates
+      if (token.sub) {
+        try {
+          const dbUser = await db.user.findUnique({ 
+            where: { id: token.sub as string },
+            select: { plan: true, image: true }
+          });
+          if (dbUser) {
+            token.plan = dbUser.plan;
+            token.image = dbUser.image;
+          }
+        } catch (error) {
+          console.error('Error fetching user data for token:', error);
+        }
       }
       
       // For Google OAuth, get or create user in database
@@ -91,6 +109,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
           token.plan = dbUser.plan;
           token.sub = dbUser.id;
+          token.image = dbUser.image;
         } catch (error) {
           console.error('Error handling Google user:', error);
         }
@@ -100,6 +119,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account?.provider === 'credentials' && user) {
         token.plan = user.plan;
         token.sub = user.id;
+        token.image = user.image;
       }
       
       return token;

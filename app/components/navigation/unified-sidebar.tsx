@@ -49,6 +49,7 @@ interface UnifiedSidebarProps {
   user: {
     name?: string | null;
     email?: string | null;
+    image?: string | null;
     plan?: string;
   };
   currentChatId?: string | null;
@@ -252,7 +253,7 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
 
 
   return (
-    <Sidebar variant="inset">
+    <Sidebar variant="inset" collapsible="offcanvas">
       <SidebarHeader>
         <div className="flex items-center gap-2 p-2">
           <MessageSquare className="h-6 w-6 text-blue-600" />
@@ -282,50 +283,6 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
                       New Chat
                     </>
                   )}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarSeparator />
-
-        {/* Navigation Menu */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={isChatActive()}
-                >
-                  <Link href="/chat" onClick={() => setOpenMobile(false)}>
-                    <MessageSquare className="h-4 w-4" />
-                    Chat
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === '/subscribe'}
-                >
-                  <Link href="/subscribe" onClick={() => setOpenMobile(false)}>
-                    <CreditCard className="h-4 w-4" />
-                    Subscription
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === '/settings' || pathname.startsWith('/settings')}
-                >
-                  <Link href="/settings" onClick={() => setOpenMobile(false)}>
-                    <Settings className="h-4 w-4" />
-                    Settings
-                  </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -488,8 +445,16 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
         >
           <div className="flex items-center gap-3 p-2 rounded-lg bg-sidebar-accent/50 hover:bg-sidebar-accent transition-colors cursor-pointer">
             <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 rounded-full overflow-hidden bg-blue-500 flex items-center justify-center">
+                {user.image ? (
+                  <img 
+                    src={user.image} 
+                    alt="Profile" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="w-4 h-4 text-white" />
+                )}
               </div>
             </div>
             <div className="flex-1 min-w-0">

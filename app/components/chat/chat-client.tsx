@@ -99,19 +99,6 @@ export default function ChatClient({
   const [loadingProviderModels, setLoadingProviderModels] = useState<string | null>(null);
   const [refreshingModels, setRefreshingModels] = useState(false);
 
-  // Debug available providers
-  useEffect(() => {
-    console.log('ChatClient received providers:', availableProviders);
-    availableProviders.forEach(provider => {
-      console.log(`Provider ${provider.name}:`, {
-        id: provider.id,
-        hasEnabledModels: provider.hasEnabledModels,
-        enabledModelsCount: provider.enabledModels?.length || 0,
-        directSelect: provider.directSelect,
-        enabledModels: provider.enabledModels?.map(m => m.name) || []
-      });
-    });
-  }, [availableProviders]);
 
   const handleProviderClick = async (providerId: string) => {
     // Only LM Studio and Ollama should show the model selection screen
@@ -185,6 +172,8 @@ export default function ChatClient({
         return 'Claude AI models';
       case 'openai':
         return 'GPT and ChatGPT models';
+      case 'google':
+        return 'Gemini models';
       default:
         return 'AI model provider';
     }

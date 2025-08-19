@@ -23,6 +23,11 @@ export const providers = {
         enabledFor: ['PRO'],
         supportsModelSelection: false,
     },
+    'google': {
+        name: 'Google',
+        enabledFor: ['PRO'],
+        supportsModelSelection: false,
+    },
 };
 
 export async function getEnabledModelsFromSettings(userId?: string) {
@@ -86,9 +91,6 @@ export async function getAvailableProvidersWithEnabledModels(plan: string, userI
         return acc;
     }, {});
 
-    // Debug logging
-    console.log('Enabled models by category:', modelsByCategory);
-    console.log('Available providers:', allProviders.map(p => ({ id: p.id, name: p.name })));
 
     // Map providers to include their enabled models
     const providersWithModels = allProviders.map(provider => {
@@ -104,7 +106,9 @@ export async function getAvailableProvidersWithEnabledModels(plan: string, userI
             models = categoryModels;
         } else {
             // For other providers, check if they have enabled models by provider name
-            const categoryModels = modelsByCategory[provider.name] || [];
+            // Special mapping: 'google' provider ID maps to 'Google' database category
+            const categoryName = provider.id === 'google' ? 'Google' : provider.name;
+            const categoryModels = modelsByCategory[categoryName] || [];
             hasEnabledModels = categoryModels.length > 0;
             models = categoryModels;
         }

@@ -11,7 +11,10 @@ interface ChatPageClientProps {
   availableProviders: { 
     id: string; 
     name: string; 
-    supportsModelSelection?: boolean; 
+    supportsModelSelection?: boolean;
+    hasEnabledModels?: boolean;
+    enabledModels?: any[];
+    directSelect?: boolean;
   }[];
   user?: {
     name?: string | null;

@@ -1,4 +1,6 @@
 import OpenAI from 'openai';
+import { auth } from './auth';
+import { db } from './db';
 
 export const providers = {
     'local-llm': {
@@ -23,6 +25,42 @@ export const providers = {
     },
 };
 
+export async function getEnabledModelsFromSettings(userId?: string) {
+    if (!userId) {
+        const session = await auth();
+        if (!session?.user?.id) return [];
+        userId = session.user.id;
+    }
+
+    try {
+        // Get all enabled models for the user from settings
+        const enabledModals = await db.modalSetting.findMany({
+            where: {
+                userId: userId,
+                enabled: true,
+            },
+            include: {
+                modal: true
+            }
+        });
+
+        // If no settings found, get default enabled modals
+        if (enabledModals.length === 0) {
+            const defaultModals = await db.modal.findMany({
+                where: {
+                    enabled: true
+                }
+            });
+            return defaultModals;
+        }
+
+        return enabledModals.map(setting => setting.modal);
+    } catch (error) {
+        console.error('Error fetching enabled models from settings:', error);
+        return [];
+    }
+}
+
 export function getAvailableProviders(plan: string) {
     return Object.entries(providers)
         .filter(([_, provider]) => {
@@ -33,6 +71,54 @@ export function getAvailableProviders(plan: string) {
             name: provider.name,
             supportsModelSelection: provider.supportsModelSelection || false
         }));
+}
+
+export async function getAvailableProvidersWithEnabledModels(plan: string, userId?: string) {
+    const allProviders = getAvailableProviders(plan);
+    const enabledModels = await getEnabledModelsFromSettings(userId);
+    
+    // Group enabled models by category
+    const modelsByCategory = enabledModels.reduce((acc: Record<string, any[]>, model) => {
+        if (!acc[model.category]) {
+            acc[model.category] = [];
+        }
+        acc[model.category].push(model);
+        return acc;
+    }, {});
+
+    // Debug logging
+    console.log('Enabled models by category:', modelsByCategory);
+    console.log('Available providers:', allProviders.map(p => ({ id: p.id, name: p.name })));
+
+    // Map providers to include their enabled models
+    const providersWithModels = allProviders.map(provider => {
+        let models: any[] = [];
+        let hasEnabledModels = false;
+
+        // Special handling for LM Studio and Ollama (keep original behavior)
+        if (provider.id === 'local-llm' || provider.id === 'ollama') {
+            // Both LM Studio and Ollama use "Local" category in database
+            // They share the same local models but are different interfaces
+            const categoryModels = modelsByCategory['Local'] || [];
+            hasEnabledModels = categoryModels.length > 0;
+            models = categoryModels;
+        } else {
+            // For other providers, check if they have enabled models by provider name
+            const categoryModels = modelsByCategory[provider.name] || [];
+            hasEnabledModels = categoryModels.length > 0;
+            models = categoryModels;
+        }
+
+        return {
+            ...provider,
+            hasEnabledModels,
+            enabledModels: models,
+            // For non-LM Studio/Ollama providers, they can be directly selected
+            directSelect: provider.id !== 'local-llm' && provider.id !== 'ollama'
+        };
+    }).filter(provider => provider.hasEnabledModels); // Only return providers with enabled models
+
+    return providersWithModels;
 }
 
 // LM Studio Model Interface

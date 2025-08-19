@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Bot, User, Send, Loader2, RefreshCw, Monitor, Cpu, Zap, Square, Save, Check, ChevronDown, Sparkles, MessageCircle, Lightbulb, Code, HelpCircle, Edit2, ChevronUp, ChevronDown as ScrollDown, Settings, Database, MessageSquare, Brain, Palette } from 'lucide-react';
+import { GeminiIcon } from '@/app/components/icons/gemini-icon';
+import { GptIcon } from '@/app/components/icons/gpt-icon';
 import MessageRenderer from './message-renderer';
 import { useChatPersistence } from '../../hooks/use-chat-persistence';
 import type { Chat, ChatConversation } from '../../../lib/chat-actions';
@@ -27,7 +29,10 @@ interface ChatClientProps {
   availableProviders: { 
     id: string; 
     name: string; 
-    supportsModelSelection?: boolean; 
+    supportsModelSelection?: boolean;
+    hasEnabledModels?: boolean;
+    enabledModels?: any[];
+    directSelect?: boolean;
   }[];
   user?: {
     name?: string | null;
@@ -94,32 +99,55 @@ export default function ChatClient({
   const [loadingProviderModels, setLoadingProviderModels] = useState<string | null>(null);
   const [refreshingModels, setRefreshingModels] = useState(false);
 
+  // Debug available providers
+  useEffect(() => {
+    console.log('ChatClient received providers:', availableProviders);
+    availableProviders.forEach(provider => {
+      console.log(`Provider ${provider.name}:`, {
+        id: provider.id,
+        hasEnabledModels: provider.hasEnabledModels,
+        enabledModelsCount: provider.enabledModels?.length || 0,
+        directSelect: provider.directSelect,
+        enabledModels: provider.enabledModels?.map(m => m.name) || []
+      });
+    });
+  }, [availableProviders]);
+
   const handleProviderClick = async (providerId: string) => {
-    setSelectedModelProvider(providerId);
-    setShowModelScreen(true);
-    
-    // Fetch models for this provider if not already cached
-    if (!providerModelsCache[providerId]) {
-      setLoadingProviderModels(providerId);
-      try {
-        const response = await fetch(`/api/models?provider=${providerId}`);
-        if (response.ok) {
-          const data = await response.json();
+    // Only LM Studio and Ollama should show the model selection screen
+    if (providerId === 'local-llm' || providerId === 'ollama') {
+      setSelectedModelProvider(providerId);
+      setShowModelScreen(true);
+      
+      // Fetch models for this provider if not already cached
+      if (!providerModelsCache[providerId]) {
+        setLoadingProviderModels(providerId);
+        try {
+          const response = await fetch(`/api/models?provider=${providerId}`);
+          if (response.ok) {
+            const data = await response.json();
+            setProviderModelsCache(prev => ({
+              ...prev,
+              [providerId]: data.models || []
+            }));
+          }
+        } catch (error) {
+          console.error('Failed to fetch models for provider:', providerId, error);
           setProviderModelsCache(prev => ({
             ...prev,
-            [providerId]: data.models || []
+            [providerId]: []
           }));
+        } finally {
+          setLoadingProviderModels(null);
         }
-      } catch (error) {
-        console.error('Failed to fetch models for provider:', providerId, error);
-        setProviderModelsCache(prev => ({
-          ...prev,
-          [providerId]: []
-        }));
-      } finally {
-        setLoadingProviderModels(null);
       }
     }
+    // For other providers, this function shouldn't be called since we show models directly
+  };
+
+  // New function to handle direct model selection
+  const handleDirectModelSelect = (modelId: string, providerId: string) => {
+    handleModelSelect(modelId, providerId);
   };
 
   const handleBackToProviders = () => {
@@ -138,7 +166,9 @@ export default function ChatClient({
       case 'anthropic':
         return Brain;
       case 'openai':
-        return Settings;
+        return GptIcon;
+      case 'google':
+        return GeminiIcon;
       default:
         return Monitor;
     }
@@ -848,40 +878,123 @@ export default function ChatClient({
                                 
                                 {!showModelScreen && (
                                   <div className="animate-slideIn">
-                                    {/* Model Providers */}
+                                    {/* Direct Model List */}
                                     <div className="grid grid-cols-4 gap-3 p-4">
-                                      {availableProviders.map((provider, index) => {
-                                        const IconComponent = getProviderIcon(provider.id);
-                                        const cachedModels = providerModelsCache[provider.id];
-                                        const modelCount = cachedModels ? cachedModels.length : '?';
+                                      {(() => {
+                                        let allModels: any[] = [];
+                                        let index = 0;
                                         
-                                        return (
-                                          <div 
-                                            key={provider.id}
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              e.stopPropagation();
-                                              handleProviderClick(provider.id);
-                                            }}
-                                            className="group flex flex-col items-center space-y-3 p-5 cursor-pointer rounded-2xl border border-gray-100 bg-white hover:border-blue-200 hover:shadow-lg transition-all duration-300 ease-out transform hover:scale-105 hover:-translate-y-1"
-                                            style={{
-                                              animation: `fadeInUp 0.5s ease-out ${index * 0.1}s both`
-                                            }}
-                                          >
-                                            <div className="relative">
-                                              <div className="absolute inset-0 bg-blue-100 rounded-full scale-0 group-hover:scale-100 transition-transform duration-300 ease-out"></div>
-                                              <IconComponent className="relative h-10 w-10 text-blue-600 group-hover:text-blue-700 transition-colors duration-300 group-hover:scale-110" />
-                                            </div>
-                                            <div className="text-center">
-                                              <div className="text-sm font-semibold text-gray-900 group-hover:text-blue-900 transition-colors duration-300">{provider.name}</div>
-                                              <div className="text-xs text-gray-500 mt-1 group-hover:text-gray-600 transition-colors duration-300">{getProviderDescription(provider.id)}</div>
-                                              <div className="inline-flex items-center justify-center mt-2 px-2 py-1 bg-blue-50 text-blue-600 text-xs font-medium rounded-full group-hover:bg-blue-100 transition-colors duration-300">
-                                                {modelCount} models
+                                        availableProviders.forEach((provider) => {
+                                          if (provider.id === 'local-llm' || provider.id === 'ollama') {
+                                            // For local LLMs, show provider card that opens model selection
+                                            allModels.push({
+                                              type: 'provider',
+                                              id: provider.id,
+                                              name: provider.name,
+                                              description: getProviderDescription(provider.id),
+                                              icon: getProviderIcon(provider.id),
+                                              count: provider.enabledModels?.length || 0,
+                                              isLocal: true
+                                            });
+                                          } else {
+                                            // For cloud providers, show individual models directly
+                                            provider.enabledModels?.forEach((model) => {
+                                              allModels.push({
+                                                type: 'model',
+                                                id: model.id,
+                                                name: model.name,
+                                                description: model.description,
+                                                icon: getProviderIcon(provider.id),
+                                                providerId: provider.id,
+                                                providerName: provider.name,
+                                                color: model.color,
+                                                isLocal: false
+                                              });
+                                            });
+                                          }
+                                        });
+                                        
+                                        return allModels.map((item) => {
+                                          const IconComponent = item.icon;
+                                          const currentIndex = index++;
+                                          
+                                          if (item.type === 'provider') {
+                                            // Local LLM Provider Card
+                                            return (
+                                              <div 
+                                                key={item.id}
+                                                onClick={(e) => {
+                                                  e.preventDefault();
+                                                  e.stopPropagation();
+                                                  handleProviderClick(item.id);
+                                                }}
+                                                className="group flex flex-col items-center space-y-3 p-5 cursor-pointer rounded-2xl border border-blue-200 bg-blue-50/30 hover:border-blue-300 hover:bg-blue-50/50 hover:shadow-lg transition-all duration-300 ease-out transform hover:scale-105 hover:-translate-y-1"
+                                                style={{
+                                                  animation: `fadeInUp 0.5s ease-out ${currentIndex * 0.05}s both`
+                                                }}
+                                              >
+                                                <div className="relative">
+                                                  <div className="absolute inset-0 bg-blue-100 rounded-full scale-0 group-hover:scale-100 transition-transform duration-300 ease-out"></div>
+                                                  <IconComponent className="relative h-8 w-8 text-blue-600 group-hover:text-blue-700 transition-colors duration-300 group-hover:scale-110" />
+                                                </div>
+                                                <div className="text-center">
+                                                  <div className="text-sm font-semibold text-blue-900 group-hover:text-blue-900 transition-colors duration-300">{item.name}</div>
+                                                  <div className="text-xs text-blue-600 mt-1 group-hover:text-blue-700 transition-colors duration-300">{item.count} models</div>
+                                                </div>
                                               </div>
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
+                                            );
+                                          } else {
+                                            // Direct Model Card
+                                            const isCurrentModel = selectedModel === item.id;
+                                            return (
+                                              <div
+                                                key={`${item.providerId}-${item.id}`}
+                                                onClick={(e) => {
+                                                  e.preventDefault();
+                                                  e.stopPropagation();
+                                                  handleDirectModelSelect(item.id, item.providerId);
+                                                }}
+                                                className={`group flex flex-col items-center space-y-3 p-5 cursor-pointer rounded-2xl border transition-all duration-300 ease-out transform hover:scale-105 hover:-translate-y-1 ${
+                                                  isCurrentModel 
+                                                    ? 'border-green-400 bg-green-50 shadow-lg shadow-green-200/50' 
+                                                    : 'border-gray-200 bg-white hover:border-green-200 hover:shadow-lg hover:shadow-gray-200/50'
+                                                }`}
+                                                style={{
+                                                  animation: `fadeInUp 0.5s ease-out ${currentIndex * 0.05}s both`
+                                                }}
+                                              >
+                                                <div className="relative">
+                                                  <div className={`absolute inset-0 rounded-full transition-all duration-300 ${
+                                                    isCurrentModel ? 'bg-green-200 scale-100' : 'bg-gray-100 scale-0 group-hover:scale-100'
+                                                  }`}></div>
+                                                  <IconComponent className={`relative h-8 w-8 transition-all duration-300 group-hover:scale-110 ${
+                                                    isCurrentModel ? 'text-green-700' : 'text-gray-600 group-hover:text-green-600'
+                                                  }`} />
+                                                </div>
+                                                <div className="text-center">
+                                                  <div className={`text-sm font-semibold transition-colors duration-300 ${
+                                                    isCurrentModel ? 'text-green-900' : 'text-gray-900 group-hover:text-green-900'
+                                                  }`}>
+                                                    {item.name}
+                                                  </div>
+                                                  <div className={`text-xs mt-1 transition-colors duration-300 ${
+                                                    isCurrentModel ? 'text-green-600' : 'text-gray-500 group-hover:text-gray-600'
+                                                  }`}>
+                                                    {item.providerName}
+                                                  </div>
+                                                </div>
+                                                {isCurrentModel && (
+                                                  <div className="absolute top-1 right-1">
+                                                    <div className="bg-green-500 rounded-full p-1 shadow-lg">
+                                                      <Check className="h-3 w-3 text-white" />
+                                                    </div>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            );
+                                          }
+                                        });
+                                      })()}
                                     </div>
                                   </div>
                                 )}
@@ -1454,40 +1567,123 @@ export default function ChatClient({
                         
                         {!showModelScreen && (
                           <div className="animate-slideIn">
-                            {/* Model Providers */}
+                            {/* Direct Model List */}
                             <div className="grid grid-cols-4 gap-3 p-4">
-                              {availableProviders.map((provider, index) => {
-                                const IconComponent = getProviderIcon(provider.id);
-                                const cachedModels = providerModelsCache[provider.id];
-                                const modelCount = cachedModels ? cachedModels.length : '?';
+                              {(() => {
+                                let allModels: any[] = [];
+                                let index = 0;
                                 
-                                return (
-                                  <div 
-                                    key={provider.id}
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      handleProviderClick(provider.id);
-                                    }}
-                                    className="group flex flex-col items-center space-y-3 p-5 cursor-pointer rounded-2xl border border-gray-100 bg-white hover:border-blue-200 hover:shadow-lg transition-all duration-300 ease-out transform hover:scale-105 hover:-translate-y-1"
-                                    style={{
-                                      animation: `fadeInUp 0.5s ease-out ${index * 0.1}s both`
-                                    }}
-                                  >
-                                    <div className="relative">
-                                      <div className="absolute inset-0 bg-blue-100 rounded-full scale-0 group-hover:scale-100 transition-transform duration-300 ease-out"></div>
-                                      <IconComponent className="relative h-10 w-10 text-blue-600 group-hover:text-blue-700 transition-colors duration-300 group-hover:scale-110" />
-                                    </div>
-                                    <div className="text-center">
-                                      <div className="text-sm font-semibold text-gray-900 group-hover:text-blue-900 transition-colors duration-300">{provider.name}</div>
-                                      <div className="text-xs text-gray-500 mt-1 group-hover:text-gray-600 transition-colors duration-300">{getProviderDescription(provider.id)}</div>
-                                      <div className="inline-flex items-center justify-center mt-2 px-2 py-1 bg-blue-50 text-blue-600 text-xs font-medium rounded-full group-hover:bg-blue-100 transition-colors duration-300">
-                                        {modelCount} models
+                                availableProviders.forEach((provider) => {
+                                  if (provider.id === 'local-llm' || provider.id === 'ollama') {
+                                    // For local LLMs, show provider card that opens model selection
+                                    allModels.push({
+                                      type: 'provider',
+                                      id: provider.id,
+                                      name: provider.name,
+                                      description: getProviderDescription(provider.id),
+                                      icon: getProviderIcon(provider.id),
+                                      count: provider.enabledModels?.length || 0,
+                                      isLocal: true
+                                    });
+                                  } else {
+                                    // For cloud providers, show individual models directly
+                                    provider.enabledModels?.forEach((model) => {
+                                      allModels.push({
+                                        type: 'model',
+                                        id: model.id,
+                                        name: model.name,
+                                        description: model.description,
+                                        icon: getProviderIcon(provider.id),
+                                        providerId: provider.id,
+                                        providerName: provider.name,
+                                        color: model.color,
+                                        isLocal: false
+                                      });
+                                    });
+                                  }
+                                });
+                                
+                                return allModels.map((item) => {
+                                  const IconComponent = item.icon;
+                                  const currentIndex = index++;
+                                  
+                                  if (item.type === 'provider') {
+                                    // Local LLM Provider Card
+                                    return (
+                                      <div 
+                                        key={item.id}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          handleProviderClick(item.id);
+                                        }}
+                                        className="group flex flex-col items-center space-y-3 p-5 cursor-pointer rounded-2xl border border-blue-200 bg-blue-50/30 hover:border-blue-300 hover:bg-blue-50/50 hover:shadow-lg transition-all duration-300 ease-out transform hover:scale-105 hover:-translate-y-1"
+                                        style={{
+                                          animation: `fadeInUp 0.5s ease-out ${currentIndex * 0.05}s both`
+                                        }}
+                                      >
+                                        <div className="relative">
+                                          <div className="absolute inset-0 bg-blue-100 rounded-full scale-0 group-hover:scale-100 transition-transform duration-300 ease-out"></div>
+                                          <IconComponent className="relative h-8 w-8 text-blue-600 group-hover:text-blue-700 transition-colors duration-300 group-hover:scale-110" />
+                                        </div>
+                                        <div className="text-center">
+                                          <div className="text-sm font-semibold text-blue-900 group-hover:text-blue-900 transition-colors duration-300">{item.name}</div>
+                                          <div className="text-xs text-blue-600 mt-1 group-hover:text-blue-700 transition-colors duration-300">{item.count} models</div>
+                                        </div>
                                       </div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                                    );
+                                  } else {
+                                    // Direct Model Card
+                                    const isCurrentModel = selectedModel === item.id;
+                                    return (
+                                      <div
+                                        key={`${item.providerId}-${item.id}`}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          handleDirectModelSelect(item.id, item.providerId);
+                                        }}
+                                        className={`group flex flex-col items-center space-y-3 p-5 cursor-pointer rounded-2xl border transition-all duration-300 ease-out transform hover:scale-105 hover:-translate-y-1 ${
+                                          isCurrentModel 
+                                            ? 'border-green-400 bg-green-50 shadow-lg shadow-green-200/50' 
+                                            : 'border-gray-200 bg-white hover:border-green-200 hover:shadow-lg hover:shadow-gray-200/50'
+                                        }`}
+                                        style={{
+                                          animation: `fadeInUp 0.5s ease-out ${currentIndex * 0.05}s both`
+                                        }}
+                                      >
+                                        <div className="relative">
+                                          <div className={`absolute inset-0 rounded-full transition-all duration-300 ${
+                                            isCurrentModel ? 'bg-green-200 scale-100' : 'bg-gray-100 scale-0 group-hover:scale-100'
+                                          }`}></div>
+                                          <IconComponent className={`relative h-8 w-8 transition-all duration-300 group-hover:scale-110 ${
+                                            isCurrentModel ? 'text-green-700' : 'text-gray-600 group-hover:text-green-600'
+                                          }`} />
+                                        </div>
+                                        <div className="text-center">
+                                          <div className={`text-sm font-semibold transition-colors duration-300 ${
+                                            isCurrentModel ? 'text-green-900' : 'text-gray-900 group-hover:text-green-900'
+                                          }`}>
+                                            {item.name}
+                                          </div>
+                                          <div className={`text-xs mt-1 transition-colors duration-300 ${
+                                            isCurrentModel ? 'text-green-600' : 'text-gray-500 group-hover:text-gray-600'
+                                          }`}>
+                                            {item.providerName}
+                                          </div>
+                                        </div>
+                                        {isCurrentModel && (
+                                          <div className="absolute top-1 right-1">
+                                            <div className="bg-green-500 rounded-full p-1 shadow-lg">
+                                              <Check className="h-3 w-3 text-white" />
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  }
+                                });
+                              })()}
                             </div>
                           </div>
                         )}

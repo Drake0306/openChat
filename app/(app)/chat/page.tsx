@@ -1,5 +1,5 @@
 import { auth } from '../../../lib/auth';
-import { getAvailableProviders } from '../../../lib/llm-providers';
+import { getAvailableProvidersWithEnabledModels } from '../../../lib/llm-providers';
 import { getChat } from '../../../lib/chat-actions';
 import ChatPageClient from './chat-page-client';
 import { redirect } from 'next/navigation';
@@ -16,7 +16,7 @@ async function ChatPage({ searchParams }: ChatPageProps) {
     redirect('/signin');
   }
   
-  const availableProviders = getAvailableProviders(session?.user?.plan || 'NONE');
+  const availableProviders = await getAvailableProvidersWithEnabledModels(session?.user?.plan || 'NONE', session?.user?.id);
   
   // Load existing chat if ID provided (but not if this is a new chat)
   let existingChat = null;

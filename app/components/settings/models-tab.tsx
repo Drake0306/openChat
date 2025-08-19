@@ -18,6 +18,8 @@ import {
   MessageSquare,
   Settings as SettingsIcon
 } from 'lucide-react';
+import { GeminiIcon } from '@/app/components/icons/gemini-icon';
+import { GptIcon } from '@/app/components/icons/gpt-icon';
 
 // Icon mapping for database icons
 const iconMapping = {
@@ -28,7 +30,9 @@ const iconMapping = {
   'crown': Crown,
   'palette': Palette,
   'message-square': MessageSquare,
-  'database': Database
+  'database': Database,
+  'gemini': GeminiIcon,
+  'gpt': GptIcon
 };
 
 export function ModelsTab() {
@@ -145,6 +149,9 @@ export function ModelsTab() {
       window.dispatchEvent(new CustomEvent('modalToggled', {
         detail: { modalId, enabled: newEnabledState }
       }));
+
+      // Also emit event to refresh available providers in chat
+      window.dispatchEvent(new CustomEvent('providersUpdated'));
     } catch (error) {
       // Revert optimistic update on error
       setEnabledModals(prev => ({

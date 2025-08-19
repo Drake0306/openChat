@@ -889,7 +889,10 @@ export default function ChatClient({
                                 {!showModelScreen && (
                                   <div className="animate-slideIn">
                                     {/* Direct Model List */}
-                                    <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                                    <div className="max-h-96 overflow-y-auto" style={{
+                                      scrollbarWidth: 'thin',
+                                      scrollbarColor: 'rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1)',
+                                    }}>
                                       <div className="grid grid-cols-4 gap-3 p-4">
                                       {(() => {
                                         let allModels: any[] = [];
@@ -1051,7 +1054,10 @@ export default function ChatClient({
                                               <h4 className="text-sm font-medium text-gray-700 mb-4">Available Models</h4>
                                               
                                               {/* Fixed height container to prevent layout shifts */}
-                                              <div className="h-60 overflow-y-auto">
+                                              <div className="h-60 overflow-y-auto" style={{
+                                                scrollbarWidth: 'thin',
+                                                scrollbarColor: 'rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1)',
+                                              }}>
                                                 {isLoading ? (
                                                   <div className="flex items-center justify-center h-full">
                                                     <div className="flex items-center space-x-2">
@@ -1580,7 +1586,10 @@ export default function ChatClient({
                         {!showModelScreen && (
                           <div className="animate-slideIn">
                             {/* Direct Model List */}
-                            <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                            <div className="max-h-96 overflow-y-auto" style={{
+                              scrollbarWidth: 'thin',
+                              scrollbarColor: 'rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1)',
+                            }}>
                               <div className="grid grid-cols-4 gap-3 p-4">
                               {(() => {
                                 let allModels: any[] = [];
@@ -1742,7 +1751,10 @@ export default function ChatClient({
                                       <h4 className="text-sm font-medium text-gray-700 mb-4">Available Models</h4>
                                       
                                       {/* Fixed height container to prevent layout shifts */}
-                                      <div className="h-60 overflow-y-auto">
+                                      <div className="h-60 overflow-y-auto" style={{
+                                        scrollbarWidth: 'thin',
+                                        scrollbarColor: 'rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1)',
+                                      }}>
                                         {isLoading ? (
                                           <div className="flex items-center justify-center h-full">
                                             <div className="flex items-center space-x-2">

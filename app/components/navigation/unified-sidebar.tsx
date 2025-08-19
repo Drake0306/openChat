@@ -396,7 +396,7 @@ export default function UnifiedSidebar({ user, currentChatId }: UnifiedSidebarPr
                                   sideOffset={8}
                                   avoidCollisions={true}
                                   collisionPadding={20}
-                                  className="w-36 bg-white border shadow-lg z-[9999]"
+                                  className="w-36 z-[9999]"
                                 >
                               <DropdownMenuItem
                                 onClick={() => handleStartRename(chat.id, chat.title || 'Untitled Chat')}

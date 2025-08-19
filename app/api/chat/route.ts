@@ -2,6 +2,8 @@ import { auth } from '../../../lib/auth';
 import { getAvailableProviders, callOpenAI, callAnthropic, callLocalLLM, callOllama } from '../../../lib/llm-providers';
 import { OpenAIStream, StreamingTextResponse } from 'ai';
 
+export const runtime = 'nodejs';
+
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) {

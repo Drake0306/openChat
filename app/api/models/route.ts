@@ -2,6 +2,8 @@ import { auth } from '../../../lib/auth';
 import { getLMStudioModels, getOllamaModels } from '../../../lib/llm-providers';
 import { NextRequest } from 'next/server';
 
+export const runtime = 'nodejs';
+
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user) {

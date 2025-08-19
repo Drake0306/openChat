@@ -3,6 +3,8 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
+
+export const runtime = 'nodejs';
 import { existsSync, mkdirSync } from 'fs';
 
 export async function POST(request: NextRequest) {

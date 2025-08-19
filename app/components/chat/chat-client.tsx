@@ -14,6 +14,13 @@ import { Badge } from '@/components/ui/badge';
 import { Bot, User, Send, Loader2, RefreshCw, Monitor, Cpu, Zap, Square, Save, Check, ChevronDown, Sparkles, MessageCircle, Lightbulb, Code, HelpCircle, Edit2, ChevronUp, ChevronDown as ScrollDown, Settings, Database, MessageSquare, Brain, Palette } from 'lucide-react';
 import { GeminiIcon } from '@/app/components/icons/gemini-icon';
 import { GptIcon } from '@/app/components/icons/gpt-icon';
+import { ClaudeIcon } from '@/app/components/icons/claude-icon';
+import { DeepSeekIcon } from '@/app/components/icons/deepseek-icon';
+import { LlamaIcon } from '@/app/components/icons/llama-icon';
+import { GrokIcon } from '@/app/components/icons/grok-icon';
+import { QwenIcon } from '@/app/components/icons/qwen-icon';
+import { KimiIcon } from '@/app/components/icons/kimi-icon';
+import { GlmIcon } from '@/app/components/icons/glm-icon';
 import MessageRenderer from './message-renderer';
 import { useChatPersistence } from '../../hooks/use-chat-persistence';
 import type { Chat, ChatConversation } from '../../../lib/chat-actions';
@@ -151,11 +158,23 @@ export default function ChatClient({
       case 'ollama':
         return Zap;
       case 'anthropic':
-        return Brain;
+        return ClaudeIcon;
       case 'openai':
         return GptIcon;
       case 'google':
         return GeminiIcon;
+      case 'deepseek':
+        return DeepSeekIcon;
+      case 'meta':
+        return LlamaIcon;
+      case 'xai':
+        return GrokIcon;
+      case 'qwen':
+        return QwenIcon;
+      case 'moonshot':
+        return KimiIcon;
+      case 'glm':
+        return GlmIcon;
       default:
         return Monitor;
     }
@@ -174,6 +193,8 @@ export default function ChatClient({
         return 'GPT and ChatGPT models';
       case 'google':
         return 'Gemini models';
+      case 'deepseek':
+        return 'DeepSeek models';
       default:
         return 'AI model provider';
     }
@@ -868,7 +889,8 @@ export default function ChatClient({
                                 {!showModelScreen && (
                                   <div className="animate-slideIn">
                                     {/* Direct Model List */}
-                                    <div className="grid grid-cols-4 gap-3 p-4">
+                                    <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                                      <div className="grid grid-cols-4 gap-3 p-4">
                                       {(() => {
                                         let allModels: any[] = [];
                                         let index = 0;
@@ -984,6 +1006,7 @@ export default function ChatClient({
                                           }
                                         });
                                       })()}
+                                      </div>
                                     </div>
                                   </div>
                                 )}
@@ -1557,7 +1580,8 @@ export default function ChatClient({
                         {!showModelScreen && (
                           <div className="animate-slideIn">
                             {/* Direct Model List */}
-                            <div className="grid grid-cols-4 gap-3 p-4">
+                            <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                              <div className="grid grid-cols-4 gap-3 p-4">
                               {(() => {
                                 let allModels: any[] = [];
                                 let index = 0;
@@ -1673,6 +1697,7 @@ export default function ChatClient({
                                   }
                                 });
                               })()}
+                              </div>
                             </div>
                           </div>
                         )}

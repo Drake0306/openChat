@@ -28,6 +28,36 @@ export const providers = {
         enabledFor: ['PRO'],
         supportsModelSelection: false,
     },
+    'deepseek': {
+        name: 'DeepSeek',
+        enabledFor: ['PRO'],
+        supportsModelSelection: false,
+    },
+    'meta': {
+        name: 'Meta',
+        enabledFor: ['PRO'],
+        supportsModelSelection: false,
+    },
+    'xai': {
+        name: 'xAI',
+        enabledFor: ['PRO'],
+        supportsModelSelection: false,
+    },
+    'qwen': {
+        name: 'Qwen',
+        enabledFor: ['PRO'],
+        supportsModelSelection: false,
+    },
+    'moonshot': {
+        name: 'Moonshot',
+        enabledFor: ['PRO'],
+        supportsModelSelection: false,
+    },
+    'glm': {
+        name: 'GLM',
+        enabledFor: ['PRO'],
+        supportsModelSelection: false,
+    },
 };
 
 export async function getEnabledModelsFromSettings(userId?: string) {
@@ -106,8 +136,16 @@ export async function getAvailableProvidersWithEnabledModels(plan: string, userI
             models = categoryModels;
         } else {
             // For other providers, check if they have enabled models by provider name
-            // Special mapping: 'google' provider ID maps to 'Google' database category
-            const categoryName = provider.id === 'google' ? 'Google' : provider.name;
+            // Special mapping: provider ID to database category
+            let categoryName = provider.name;
+            if (provider.id === 'google') categoryName = 'Google';
+            if (provider.id === 'deepseek') categoryName = 'DeepSeek';
+            if (provider.id === 'meta') categoryName = 'Meta';
+            if (provider.id === 'xai') categoryName = 'xAI';
+            if (provider.id === 'qwen') categoryName = 'Qwen';
+            if (provider.id === 'moonshot') categoryName = 'Moonshot';
+            if (provider.id === 'glm') categoryName = 'GLM';
+            
             const categoryModels = modelsByCategory[categoryName] || [];
             hasEnabledModels = categoryModels.length > 0;
             models = categoryModels;

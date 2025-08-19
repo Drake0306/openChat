@@ -20,6 +20,13 @@ import {
 } from 'lucide-react';
 import { GeminiIcon } from '@/app/components/icons/gemini-icon';
 import { GptIcon } from '@/app/components/icons/gpt-icon';
+import { ClaudeIcon } from '@/app/components/icons/claude-icon';
+import { DeepSeekIcon } from '@/app/components/icons/deepseek-icon';
+import { LlamaIcon } from '@/app/components/icons/llama-icon';
+import { GrokIcon } from '@/app/components/icons/grok-icon';
+import { QwenIcon } from '@/app/components/icons/qwen-icon';
+import { KimiIcon } from '@/app/components/icons/kimi-icon';
+import { GlmIcon } from '@/app/components/icons/glm-icon';
 
 // Icon mapping for database icons
 const iconMapping = {
@@ -32,7 +39,14 @@ const iconMapping = {
   'message-square': MessageSquare,
   'database': Database,
   'gemini': GeminiIcon,
-  'gpt': GptIcon
+  'gpt': GptIcon,
+  'claude': ClaudeIcon,
+  'deepseek': DeepSeekIcon,
+  'llama': LlamaIcon,
+  'grok': GrokIcon,
+  'qwen': QwenIcon,
+  'kimi': KimiIcon,
+  'glm': GlmIcon
 };
 
 export function ModelsTab() {
@@ -40,6 +54,7 @@ export function ModelsTab() {
   const [enabledModals, setEnabledModals] = useState<Record<string, boolean>>({});
   const [availableModals, setAvailableModals] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [filterEnabled, setFilterEnabled] = useState<'all' | 'enabled' | 'disabled'>('all');
 
   // Load modal settings and data from database
   useEffect(() => {
@@ -208,11 +223,83 @@ export function ModelsTab() {
     return colors[color as keyof typeof colors] || colors.blue;
   };
 
-  // Filter modals based on search query
-  const filteredModals = availableModals.filter(modal =>
-    modal.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    modal.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Add uncheck all functionality
+  const handleUncheckAll = async () => {
+    const enabledModalIds = Object.keys(enabledModals).filter(id => enabledModals[id]);
+    
+    if (enabledModalIds.length === 0) {
+      toast.info('All models are already disabled');
+      return;
+    }
+
+    // Optimistic update
+    const newEnabledState: Record<string, boolean> = {};
+    Object.keys(enabledModals).forEach(id => {
+      newEnabledState[id] = false;
+    });
+    setEnabledModals(newEnabledState);
+
+    try {
+      // Disable all enabled models
+      const promises = enabledModalIds.map(async (modalId) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const response = await fetch('/api/user/modals', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            modalId,
+            enabled: false
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+        return response;
+      });
+
+      const results = await Promise.allSettled(promises);
+      const failed = results.filter(result => 
+        result.status === 'rejected' || 
+        (result.status === 'fulfilled' && !result.value.ok)
+      );
+
+      if (failed.length === 0) {
+        toast.success(`All ${enabledModalIds.length} models disabled successfully`);
+        // Emit events to update chat interface
+        window.dispatchEvent(new CustomEvent('providersUpdated'));
+        enabledModalIds.forEach(modalId => {
+          window.dispatchEvent(new CustomEvent('modalToggled', {
+            detail: { modalId, enabled: false }
+          }));
+        });
+      } else {
+        // Revert changes for failed requests
+        setEnabledModals(enabledModals);
+        toast.error(`Failed to disable ${failed.length} models. Please try again.`);
+      }
+    } catch (error) {
+      // Revert all changes on error
+      setEnabledModals(enabledModals);
+      toast.error('Failed to disable models. Please try again.');
+      console.error('Error disabling all models:', error);
+    }
+  };
+
+  // Filter modals based on search query and enabled status
+  const filteredModals = availableModals.filter(modal => {
+    const matchesSearch = modal.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      modal.description.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesFilter = filterEnabled === 'all' || 
+      (filterEnabled === 'enabled' && enabledModals[modal.id]) ||
+      (filterEnabled === 'disabled' && !enabledModals[modal.id]);
+    
+    return matchesSearch && matchesFilter;
+  });
 
   const renderModelItem = (modal: any) => {
     const IconComponent = modal.icon;
@@ -300,23 +387,76 @@ export function ModelsTab() {
           )}
         </div>
 
+        {/* Filter buttons */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600 font-medium">Filter:</span>
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+              <button
+                onClick={() => setFilterEnabled('all')}
+                className={`px-3 py-1 text-xs font-medium transition-colors ${
+                  filterEnabled === 'all'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setFilterEnabled('enabled')}
+                className={`px-3 py-1 text-xs font-medium transition-colors border-l border-gray-200 ${
+                  filterEnabled === 'enabled'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                Enabled
+              </button>
+              <button
+                onClick={() => setFilterEnabled('disabled')}
+                className={`px-3 py-1 text-xs font-medium transition-colors border-l border-gray-200 ${
+                  filterEnabled === 'disabled'
+                    ? 'bg-gray-600 text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                Disabled
+              </button>
+            </div>
+          </div>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleUncheckAll}
+            className="text-xs text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+            disabled={isLoading || Object.values(enabledModals).every(enabled => !enabled)}
+          >
+            <X className="h-3 w-3 mr-1" />
+            Uncheck All
+          </Button>
+        </div>
+
         {/* Results count */}
         <div className="flex items-center justify-between mb-3">
           <p className="text-sm text-gray-500">
-            {searchQuery ? (
+            {searchQuery || filterEnabled !== 'all' ? (
               <>Showing {filteredModals.length} of {availableModals.length} models</>
             ) : (
               <>{availableModals.length} models total</>
             )}
           </p>
-          {searchQuery && (
+          {(searchQuery || filterEnabled !== 'all') && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setSearchQuery('')}
+              onClick={() => {
+                setSearchQuery('');
+                setFilterEnabled('all');
+              }}
               className="text-xs text-gray-500 hover:text-gray-700"
             >
-              Clear search
+              Clear filters
             </Button>
           )}
         </div>

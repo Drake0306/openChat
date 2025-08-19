@@ -309,11 +309,16 @@ export function ModelsTab() {
     return (
       <div 
         key={modal.id} 
-        className={`p-5 rounded-lg border transition-all duration-200 hover:shadow-md ${
-          isEnabled 
-            ? 'bg-white border-gray-200 hover:border-gray-300' 
-            : 'bg-gray-50 border-gray-100'
-        }`}
+        className="p-5 rounded-lg transition-all duration-200 hover:shadow-lg hover:scale-[1.02]"
+        style={{
+          background: isEnabled 
+            ? 'linear-gradient(145deg, rgba(251, 222, 209, 0.3), rgba(251, 222, 209, 0.2))' 
+            : 'linear-gradient(145deg, rgba(251, 222, 209, 0.15), rgba(251, 222, 209, 0.1))',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          border: `1px solid rgba(251, 222, 209, ${isEnabled ? '0.4' : '0.2'})`,
+          boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+        }}
       >
         <div className="flex items-start justify-between">
           <div className="flex items-start space-x-4 flex-1 min-w-0">
@@ -322,7 +327,7 @@ export function ModelsTab() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2 mb-2">
-                <h4 className={`font-semibold ${isEnabled ? 'text-gray-900' : 'text-gray-500'}`}>
+                <h4 className={`font-semibold ${isEnabled ? 'text-orange-900' : 'text-orange-600'}`}>
                   {modal.name}
                 </h4>
                 {isLocalModel && (
@@ -332,7 +337,7 @@ export function ModelsTab() {
                   </Badge>
                 )}
               </div>
-              <div className={`mt-2 ${isEnabled ? 'text-gray-700' : 'text-gray-500'}`}>
+              <div className={`mt-2 ${isEnabled ? 'text-orange-800' : 'text-orange-600'}`}>
                 <p className="text-sm leading-relaxed">
                   {modal.description || 'No description available'}
                 </p>
@@ -362,27 +367,34 @@ export function ModelsTab() {
   return (
     <div className="w-full h-full flex flex-col">
       <div className="mb-6 flex-shrink-0">
-        <h3 className="text-lg font-semibold mb-2">Available Models</h3>
-        <p className="text-gray-600 text-sm mb-4">Toggle models on or off to control their visibility in the chat section. Settings are automatically saved to your account.</p>
+        <h3 className="text-lg font-semibold mb-2 text-orange-900">Available Models</h3>
+        <p className="text-orange-700 text-sm mb-4">Toggle models on or off to control their visibility in the chat section. Settings are automatically saved to your account.</p>
         
         {/* Search Input */}
         <div className="relative mb-4">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-gray-400" />
+            <Search className="h-4 w-4 text-orange-400" />
           </div>
           <Input
             type="text"
             placeholder="Search models by name or description..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-4 py-2 w-full border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="pl-10 pr-4 py-2 w-full rounded-lg text-orange-900 placeholder:text-orange-600"
+            style={{
+              background: 'linear-gradient(145deg, rgba(251, 222, 209, 0.5), rgba(251, 222, 209, 0.4))',
+              border: '1px solid rgba(251, 222, 209, 0.6)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 2px 8px rgba(251, 222, 209, 0.2)',
+            }}
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
               className="absolute inset-y-0 right-0 pr-3 flex items-center"
             >
-              <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+              <X className="h-4 w-4 text-orange-400 hover:text-orange-600" />
             </button>
           )}
         </div>
@@ -390,8 +402,12 @@ export function ModelsTab() {
         {/* Filter buttons */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600 font-medium">Filter:</span>
-            <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+            <span className="text-sm text-orange-700 font-medium">Filter:</span>
+            <div className="flex rounded-lg overflow-hidden" style={{
+              background: 'rgba(251, 222, 209, 0.2)',
+              border: '1px solid rgba(251, 222, 209, 0.4)',
+              backdropFilter: 'blur(5px)',
+            }}>
               <button
                 onClick={() => setFilterEnabled('all')}
                 className={`px-3 py-1 text-xs font-medium transition-colors ${
@@ -487,7 +503,13 @@ export function ModelsTab() {
         )}
       </div>
       
-      <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200 flex-shrink-0">
+      <div className="mt-6 p-4 rounded-lg flex-shrink-0" style={{
+        background: 'linear-gradient(145deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.1))',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        border: '1px solid rgba(59, 130, 246, 0.3)',
+        boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+      }}>
         <div className="flex items-start space-x-2">
           <SettingsIcon className="h-5 w-5 text-blue-600 mt-0.5" />
           <div>

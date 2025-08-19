@@ -129,21 +129,33 @@ export function AccountTab({ user, onUserUpdate }: AccountTabProps) {
     <div className="w-full">
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Profile Settings */}
-        <Card className="xl:col-span-2">
+        <Card className="xl:col-span-2" style={{
+          background: 'linear-gradient(145deg, rgba(251, 222, 209, 0.3), rgba(251, 222, 209, 0.2))',
+          backdropFilter: 'blur(15px)',
+          WebkitBackdropFilter: 'blur(15px)',
+          border: '1px solid rgba(251, 222, 209, 0.4)',
+          boxShadow: '0 8px 32px rgba(251, 222, 209, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
+        }}>
           <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-900">Profile Settings</CardTitle>
+            <CardTitle className="text-xl font-bold text-orange-900">Profile Settings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Basic Information Section */}
-            <div className="bg-gray-50 rounded-lg p-6 space-y-4">
+            <div className="rounded-lg p-6 space-y-4" style={{
+              background: 'linear-gradient(145deg, rgba(251, 222, 209, 0.4), rgba(251, 222, 209, 0.2))',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              border: '1px solid rgba(251, 222, 209, 0.3)',
+              boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+            }}>
               <div className="flex items-center gap-2 mb-4">
-                <User className="h-5 w-5 text-gray-600" />
-                <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
+                <User className="h-5 w-5 text-orange-600" />
+                <h3 className="text-lg font-semibold text-orange-900">Basic Information</h3>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="name" className="text-sm font-medium text-gray-700">Display Name</Label>
+                  <Label htmlFor="name" className="text-sm font-medium text-orange-700">Display Name</Label>
                   <Input
                     id="name"
                     value={profileForm.name}
@@ -154,29 +166,39 @@ export function AccountTab({ user, onUserUpdate }: AccountTabProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email Address</Label>
+                  <Label htmlFor="email" className="text-sm font-medium text-orange-700">Email Address</Label>
                   <Input
                     id="email"
                     value={user.email || ''}
                     disabled
-                    className="mt-1 bg-white border-gray-200"
+                    className="mt-1"
+                    style={{
+                      background: 'rgba(251, 222, 209, 0.2)',
+                      border: '1px solid rgba(251, 222, 209, 0.3)',
+                    }}
                   />
-                  <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                  <p className="text-xs text-orange-600 mt-1">Email cannot be changed</p>
                 </div>
               </div>
             </div>
 
             {/* Password Section for Non-Google Users */}
             {!user.hasGoogleAccount && (
-              <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
+              <div className="rounded-lg p-6 space-y-4" style={{
+                background: 'linear-gradient(145deg, rgba(251, 222, 209, 0.3), rgba(251, 222, 209, 0.15))',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                border: '1px solid rgba(251, 222, 209, 0.4)',
+                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+              }}>
                 <div className="flex items-center gap-2 mb-4">
-                  <Key className="h-5 w-5 text-gray-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">Security</h3>
+                  <Key className="h-5 w-5 text-orange-600" />
+                  <h3 className="text-lg font-semibold text-orange-900">Security</h3>
                 </div>
                 
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="currentPassword" className="text-sm font-medium text-gray-700">Current Password</Label>
+                    <Label htmlFor="currentPassword" className="text-sm font-medium text-orange-700">Current Password</Label>
                     <Input
                       id="currentPassword"
                       type="password"
@@ -189,7 +211,7 @@ export function AccountTab({ user, onUserUpdate }: AccountTabProps) {
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="newPassword" className="text-sm font-medium text-gray-700">New Password</Label>
+                      <Label htmlFor="newPassword" className="text-sm font-medium text-orange-700">New Password</Label>
                       <Input
                         id="newPassword"
                         type="password"
@@ -198,11 +220,11 @@ export function AccountTab({ user, onUserUpdate }: AccountTabProps) {
                         placeholder="Enter new password"
                         className="mt-1"
                       />
-                      <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+                      <p className="text-xs text-orange-600 mt-1">Minimum 6 characters</p>
                     </div>
                     
                     <div>
-                      <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">Confirm New Password</Label>
+                      <Label htmlFor="confirmPassword" className="text-sm font-medium text-orange-700">Confirm New Password</Label>
                       <Input
                         id="confirmPassword"
                         type="password"
@@ -219,9 +241,18 @@ export function AccountTab({ user, onUserUpdate }: AccountTabProps) {
 
             {/* Google Account Info for Google Users */}
             {user.hasGoogleAccount && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+              <div className="rounded-lg p-6" style={{
+                background: 'linear-gradient(145deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.1))',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+              }}>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{
+                    background: 'rgba(59, 130, 246, 0.2)',
+                    backdropFilter: 'blur(5px)',
+                  }}>
                     <Key className="h-4 w-4 text-blue-600" />
                   </div>
                   <div>
@@ -231,7 +262,10 @@ export function AccountTab({ user, onUserUpdate }: AccountTabProps) {
                     </p>
                   </div>
                 </div>
-                <div className="bg-blue-100 rounded-md p-3">
+                <div className="rounded-md p-3" style={{
+                  background: 'rgba(59, 130, 246, 0.2)',
+                  backdropFilter: 'blur(5px)',
+                }}>
                   <p className="text-xs text-blue-800">
                     To change your password, visit your Google Account settings at accounts.google.com
                   </p>
@@ -260,11 +294,19 @@ export function AccountTab({ user, onUserUpdate }: AccountTabProps) {
             )}
 
             {/* Save Button */}
-            <div className="pt-4 border-t border-gray-200">
+            <div className="pt-4" style={{ 
+              borderTop: '1px solid rgba(251, 222, 209, 0.3)'
+            }}>
               <Button 
                 onClick={handleProfileUpdate} 
                 disabled={isUpdating}
                 className="w-full h-12 text-base font-medium"
+                style={{
+                  background: 'linear-gradient(145deg, rgba(251, 222, 209, 0.6), rgba(251, 222, 209, 0.4))',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(251, 222, 209, 0.5)',
+                  color: '#9a3412',
+                }}
               >
                 <Save className="h-5 w-5 mr-2" />
                 {isUpdating ? 'Updating Profile...' : 'Save Changes'}
@@ -275,13 +317,19 @@ export function AccountTab({ user, onUserUpdate }: AccountTabProps) {
 
         {/* Upgrade to Pro Card */}
         <div className="space-y-6">
-          <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+          <Card style={{
+            background: 'linear-gradient(145deg, rgba(59, 130, 246, 0.2), rgba(99, 102, 241, 0.15))',
+            backdropFilter: 'blur(15px)',
+            WebkitBackdropFilter: 'blur(15px)',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            boxShadow: '0 8px 32px rgba(59, 130, 246, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+          }}>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-bold text-gray-900">Upgrade to Pro</CardTitle>
+                <CardTitle className="text-lg font-bold text-blue-900">Upgrade to Pro</CardTitle>
                 <div className="text-right">
                   <span className="text-2xl font-bold text-blue-600">$8</span>
-                  <span className="text-gray-600 text-sm">/month</span>
+                  <span className="text-blue-700 text-sm">/month</span>
                 </div>
               </div>
             </CardHeader>
@@ -290,26 +338,40 @@ export function AccountTab({ user, onUserUpdate }: AccountTabProps) {
                 <div className="flex items-start gap-2">
                   <Zap className="h-4 w-4 text-blue-600 mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">All Models</p>
-                    <p className="text-xs text-gray-600">Claude, GPT, and more</p>
+                    <p className="text-sm font-medium text-blue-900">All Models</p>
+                    <p className="text-xs text-blue-700">Claude, GPT, and more</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <Crown className="h-4 w-4 text-indigo-600 mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Generous Limits</p>
-                    <p className="text-xs text-gray-600">1500 standard + 100 premium credits</p>
+                    <p className="text-sm font-medium text-blue-900">Generous Limits</p>
+                    <p className="text-xs text-blue-700">1500 standard + 100 premium credits</p>
                   </div>
                 </div>
               </div>
-              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" size="sm">
+              <Button 
+                className="w-full text-white" 
+                size="sm"
+                style={{
+                  background: 'linear-gradient(145deg, rgba(59, 130, 246, 0.8), rgba(59, 130, 246, 0.6))',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(59, 130, 246, 0.4)',
+                }}
+              >
                 Upgrade Now
               </Button>
             </CardContent>
           </Card>
 
           {/* Danger Zone */}
-          <Card className="border-red-200 bg-red-50">
+          <Card style={{
+            background: 'linear-gradient(145deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.1))',
+            backdropFilter: 'blur(15px)',
+            WebkitBackdropFilter: 'blur(15px)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            boxShadow: '0 8px 32px rgba(239, 68, 68, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+          }}>
             <CardHeader>
               <CardTitle className="text-lg font-bold text-red-700 flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5" />
